@@ -38,6 +38,7 @@ filt_top20genes_outliers = True
 corr_ambient_rna = 'CellBender'
 #SoupX: https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html#correction-of-ambient-rna
 #CellBender: https://cellbender.readthedocs.io/en/latest/introduction/index.html
+#CellBender.sh
 
 qc_ext = '_qc.h5ad'
 logFile = 'Wouter_scRNA_log_QC'
