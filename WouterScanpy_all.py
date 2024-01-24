@@ -30,12 +30,14 @@ print('Anndata: ',ad.__version__,'Scanpy: ',sc.__version__)
 
 DirRNA = '/mnt/etemp/ahrmad/wouter/batch_RNA'
 Dir10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
-Samples = [d for d in os.listdir(Dir10x) if d.startswith('WK')]
+### TO CHANGE IF CHANGING SAMPLES ###
+Experiment='Wouter21_ENZ_AP'
+### TO CHANGE IF CHANGING SAMPLES ###
+
 qc_ext = '_qc.h5ad'
 resDir = '/mnt/etemp/ahrmad/wouter/refs'
 Feat_Dim_Red_ext = '_Norm_FeatSel_DimRed.h5ad'
 
-Experiment='Wouter21_ENZ_AP'
 Samples = [d for d in os.listdir(Dir10x) if d.startswith('WK')]
 sample_dict = {'Enzymatic Digestion':[],'Singulator':[]}
 for sample in Samples:
@@ -47,7 +49,6 @@ if 'ENZ' in Experiment:
 	Samples = sample_dict['Enzymatic Digestion']
 elif 'SING' in Experiment:
 	Samples = sample_dict['Singulator']
-
 if 'ENZ_AP' in Experiment:
 	Samples = [s for s in Samples if 'AP' in s]
 
@@ -262,7 +263,10 @@ print(f'{Experiment} UMAP DONE')
 print('Writing final h5ad')
 adata.write(Experiment + Feat_Dim_Red_ext)
 
+
+
 print('Annotation')
+adata = sc.read_h5ad(Experiment + Feat_Dim_Red_ext)
 ### Annotation
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -343,7 +347,7 @@ gene_set_table = f'{resDir}/table_s8_summary.txt'
 gene_set_df = pd.read_csv(gene_set_table, sep='\t')
 
 for gene_set in gene_set_df.columns:
-	ctrl = 100
+	ctrl = 50
 	print(f'{gene_set} S8')
 	genes = gene_set_df[gene_set].str.upper()
 	sc.tl.score_genes(adata, genes, ctrl_size=ctrl, n_bins=25, score_name=gene_set)

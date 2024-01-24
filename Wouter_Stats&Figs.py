@@ -691,8 +691,173 @@ plt.tight_layout()
 plt.savefig(f'ALL_venn_doublet.pdf')
 plt.close()
 
+#### CellBender stats
+
+# Cell Calling Hist
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import os
+
+#gexdf = pd.read_csv(gexfile)
+stats_dict = {}
+
+CB_stats = np.unique([d for d in os.listdir('.') if d.startswith('WK') if d.endswith('_CellBender_metrics.csv')])
+
+for CB_stat in CB_stats:
+	stat_df = pd.read_csv(CB_stat,header=None)
+
+	batch = CB_stat.split('_CellBender_metrics.csv')[0]
+	val = [int(stat_df[stat_df[0] == 'expected_cells'][1].iloc[0]),int(stat_df[stat_df[0] == 'found_cells'][1].iloc[0])]
+	stats_dict[batch] = val
+
+# Extract keys, first values, and second values from the dictionary
+keys = list(stats_dict.keys())
+value_1 = [item[0] for item in stats_dict.values()]
+value_2 = [item[1] for item in stats_dict.values()]
+
+# Plotting the histogram
+bar_width = 0.35
+index = np.arange(len(keys))
+fig, ax = plt.subplots()
+
+# Plot the first values (10x) in blue
+bar1 = ax.bar(index, value_1, bar_width, label='10x Joint Cell Calling', color='#fc8d59',alpha=0.8)
+
+# Plot the second values (CellBender) in orange
+bar2 = ax.bar(index + bar_width, value_2, bar_width, label='CellBender Cell Calling on RNA', color='#91bfdb',alpha=0.8)
+
+# Customize the plot
+ax.set_ylabel('Cell Count')
+ax.set_xticks(index + bar_width / 2)
+ax.set_xticklabels(keys, rotation=45, ha='right')
+ax.legend()
 
 
+# Show the plot
+plt.tight_layout()
+plt.savefig('CB_Cell_Calling_Comp_Hist.pdf')
+plt.close()
+
+
+# Cell Calling Venn
+import matplotlib.pyplot as plt
+from matplotlib_venn import venn2, venn2_circles
+import numpy as np
+import pandas as pd
+import os
+
+CB_stats = np.unique([d.split('_CellBender_metrics.csv')[0] for d in os.listdir('.') if d.startswith('WK') if d.endswith('_CellBender_metrics.csv')])
+
+for CB_stat in CB_stats:
+	print(f'Venn {CB_stat}')
+	CB_bcs = pd.Series(pd.read_csv(CB_stat+"_CellBender_cell_barcodes.csv",header=None)[0], name='CellBender')
+	ten_bcs = pd.read_csv('raws/'+CB_stat+"_per_barcode_metrics.csv",usecols=['barcode','is_cell'])
+	ten_bcs = pd.Series(ten_bcs[ten_bcs['is_cell']==1]['barcode'],name="10x")
+
+	# Create a Venn diagram
+	venn_labels = {'14564360': 'CellBender', '246234461': '10x', '1436234641': 'Both'}
+	venn2(subsets=(set(CB_bcs), set(ten_bcs)), set_labels=('CellBender', '10x'), ax=plt.gca(), set_colors=('skyblue', 'green'))
+	venn2_circles(subsets=(set(CB_bcs), set(ten_bcs)), ax=plt.gca(), linewidth=1.5)
+
+	# Add labels
+	for text in plt.gca().texts:
+	    if text.get_text() in venn_labels:
+	        text.set_text(venn_labels[text.get_text()])
+
+	# Show the plot
+	plt.title(CB_stat)
+	plt.tight_layout()
+	plt.savefig(f'{CB_stat}_Venn_BCs.pdf')
+	plt.close()
+
+#pdfjam --nup 4x3 --landscape --a4paper *_Venn*.pdf --outfile CB_Cell_Calling_Comp_Venn.pdf
+
+# Read drop Hist
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import os
+
+#gexdf = pd.read_csv(gexfile)
+stats_dict = {}
+
+CB_stats = np.unique([d for d in os.listdir('.') if d.startswith('WK') if d.endswith('_CellBender_metrics.csv')])
+
+for CB_stat in CB_stats:
+	stat_df = pd.read_csv(CB_stat,header=None)
+
+	batch = CB_stat.split('_CellBender_metrics.csv')[0]
+	val = [int(stat_df[stat_df[0] == 'total_raw_counts'][1].iloc[0]),int(stat_df[stat_df[0] == 'total_output_counts'][1].iloc[0])]
+	stats_dict[batch] = val
+
+# Extract keys, first values, and second values from the dictionary
+keys = list(stats_dict.keys())
+value_1 = [item[0] for item in stats_dict.values()]
+value_2 = [item[1] for item in stats_dict.values()]
+
+# Plotting the histogram
+bar_width = 0.35
+index = np.arange(len(keys))
+fig, ax = plt.subplots()
+
+# Plot the first values (10x) in blue
+bar1 = ax.bar(index, value_1, bar_width, label='Total Raw Counts', color='#fc8d59',alpha=0.8)
+
+# Plot the second values (CellBender) in orange
+bar2 = ax.bar(index + bar_width, value_2, bar_width, label='CellBender Counts', color='#91bfdb',alpha=0.8)
+
+# Customize the plot
+ax.set_ylabel('Read Count')
+ax.set_xticks(index + bar_width / 2)
+ax.set_xticklabels(keys, rotation=45, ha='right')
+ax.legend()
+
+
+# Show the plot
+plt.tight_layout()
+plt.savefig('CB_Read_Drop_Hist.pdf')
+plt.close()
+
+# Read drop ratio Hist
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import os
+
+stats_dict = {}
+
+CB_stats = np.unique([d for d in os.listdir('.') if d.startswith('WK') if d.endswith('_CellBender_metrics.csv')])
+
+for CB_stat in CB_stats:
+	stat_df = pd.read_csv(CB_stat,header=None)
+
+	batch = CB_stat.split('_CellBender_metrics.csv')[0]
+	val = float(stat_df[stat_df[0] == 'fraction_counts_removed'][1].iloc[0]*100)
+	stats_dict[batch] = val
+
+# Extract keys, first values, and second values from the dictionary
+keys = list(stats_dict.keys())
+value_1 = stats_dict.values()
+
+# Plotting the histogram
+#bar_width = 0.35
+index = np.arange(len(keys))
+fig, ax = plt.subplots()
+
+# Plot the first values (10x) in blue
+bar1 = ax.bar(index, value_1, bar_width, color='#91bfdb',alpha=0.8)
+
+# Customize the plot
+ax.set_ylabel('Fraction Reads removed (%)')
+ax.set_xticks(index)
+ax.set_xticklabels(keys, rotation=45, ha='right')
+
+
+# Show the plot
+plt.tight_layout()
+plt.savefig('CB_Read_Drop_Ratio_Hist.pdf')
+plt.close()
 ################################################################################################################################################################
 ################################################################################################################################################################
 ################################################################################################################################################################
@@ -816,231 +981,6 @@ plt.tight_layout()
 plt.savefig('QC_summary.pdf')
 plt.close()
 ####################
-
-
-########################################
-# scATAC testing
-########################################
-import snapatac2 as snap
-import pandas as pd
-import numpy as np
-import os
-print('snapatac2 version:',snap.__version__)
-
-# Input files
-
-path10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
-pathRes = '/mnt/etemp/ahrmad/wouter/snap/'
-exp10x = [d for d in os.listdir(path10x) if d.startswith('WK') and os.path.isdir(os.path.join(path10x, d))]
-
-var1="replacement_value"
-file="your_text_file.txt"
-
-# Use sed to replace 'gerg' with the value of $var1 in the file (cross-platform version)
-sed -i.bak "s/gerg/$var1/g" "$file" && rm "${file}.bak"
-
- gs -dBATCH -dNOPAUSE -dPDFSETTINGS=/prepress -sDEVICE=pdfwrite -o annotated.pdf WK-1350_I-1_AP_Jaccard_Cluster.pdf pdfmarks.txt
-########################################
-# scRNA testing
-########################################
-import numpy as np
-import scanpy as sc
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from scipy.stats import median_abs_deviation
-from scipy.sparse import csr_matrix, issparse
-import os
-
-#For Correction of ambient RNA
-import anndata2ri
-import logging
-import rpy2.rinterface_lib.callbacks as rcb
-import rpy2.robjects as ro
-rcb.logger.setLevel(logging.ERROR)
-ro.pandas2ri.activate()
-anndata2ri.activate()
-%load_ext rpy2.ipython
-
-sc.settings.verbosity = 0
-sc.settings.set_figure_params(
-    dpi_save=200,
-    fontsize=12,
-    facecolor="white",
-    frameon=False,
-)
-
-sample ='WK-1384_BL6_Intact_AP_2_SLT'
-Dir10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
-PathMat = '/outs/filtered_feature_bc_matrix.h5'
-Samples = [d for d in os.listdir(Dir10x) if d.startswith('WK')]
-
-### Quality Control 
-pct_mt_count_thresh = 20
-mt_MADS_thresh = 3
-count_thresh = 5
-filt_top20genes_outliers = False
-corr_ambient_rna = False #https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html#correction-of-ambient-rna
-
-qc_ext = '_qc.h5ad'
-logFile = 'Wouter_scRNA_log_QC'
-l = open(logFile, 'a')
-print(f'\n###################\n Processing {sample}...\n###################')
-l.write(f'\n###################\n Processing {sample}...\n###################')
-mat10x = Dir10x + sample + PathMat
-adata = sc.read_10x_h5(filename=mat10x)
-
-adata.var_names_make_unique()
-# mitochondrial genes
-adata.var["mt"] = adata.var_names.str.startswith("mt-")
-# ribosomal genes
-adata.var["ribo"] = adata.var_names.str.startswith(("Rps", "Rpl"))
-# hemoglobin genes.
-adata.var["hb"] = adata.var_names.str.startswith("Hb")
-
-sc.pp.calculate_qc_metrics(adata, qc_vars=["mt", "ribo", "hb"], inplace=True, percent_top=[20])
-#We have replaced annotations for lincRNAs Gm42418 and
-#AY036118 with a single contiguous gene annotation for the rRNA element Rn45s. This locus harbors an Rn45s repeat
-#as reflected in RefSeq, such that contaminating 18S rRNA in our library preparations may lead to inflated expression
-#counts for these lincRNAs
-sc.pl.highest_expr_genes(adata, n_top=30,save=sample+'_HighExpGenes', show=False)
-sns.displot(adata.obs["total_counts"], bins=100, kde=False)
-plt.title(sample)
-plt.savefig(sample+'_TotCounts.pdf')
-plt.close()
-
-#sc.pl.violin(adata, 'pct_counts_mt',save=sample+'-MT',title=sample,show=False)
-#sc.pl.violin(adata, 'pct_counts_ribo',save=sample+'-Ribo',title=sample,show=False)
-#sc.pl.violin(adata, 'pct_counts_hb',save=sample+'-HB',title=sample,show=False)
-sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="pct_counts_mt",save=sample+'_QC',title=sample,show=False)
-
-#### Filtering low quality reads
-#with automatic thresholding based on MAD (median absolute deviations)
-#sc-best-practices.org/preprocessing_visualization/quality_control.html
-def is_outlier(adata, metric: str, nmads: int):
-    M = adata.obs[metric]
-    outlier = (M < np.median(M) - nmads * median_abs_deviation(M)) | (
-        np.median(M) + nmads * median_abs_deviation(M) < M
-    )
-    return outlier
-
-#log1p_total_counts, log1p_n_genes_by_counts and pct_counts_in_top_20_genes filtered with a threshold of 5 MADs
-adata.obs["outlier_total_c"] = (is_outlier(adata, "log1p_total_counts", count_thresh))
-adata.obs["outlier_n_genesC"] = (is_outlier(adata, "log1p_n_genes_by_counts", count_thresh))
-outlier_total_c = np.sum(adata.obs["outlier_total_c"])
-outlier_n_genesC = np.sum(adata.obs["outlier_n_genesC"])
-
-if filt_top20genes_outliers:
-    adata.obs["outlier_top_20_genes"] = (is_outlier(adata, "pct_counts_in_top_20_genes", count_thresh))
-    outlier_top_20_genes = np.sum(adata.obs["outlier_top_20_genes"])
-else:
-	adata.obs["outlier_top_20_genes"] = False
-    outlier_top_20_genes = np.sum((is_outlier(adata, "pct_counts_in_top_20_genes", count_thresh)))
-
-#pct_counts_Mt is filtered with 3 MADs
-#cells with a percentage of mitochondrial counts exceeding 15% are filtered out
-adata.obs["mt_outlier"] = is_outlier(adata, "pct_counts_mt", mt_MADS_thresh) & (adata.obs["pct_counts_mt"] > pct_mt_count_thresh)
-
-mt_outlier = np.sum(adata.obs["mt_outlier"])
-
-l.write(f"\nTotal number of cells: {adata.n_obs}")
-l.write(f"\nRemoved {outlier_total_c} cells (log1p_total_counts outliers: {count_thresh} MADS)")
-l.write(f"\nRemoved {outlier_n_genesC} cells (log1p_n_genes_by_counts outliers: {count_thresh} MADS)")
-l.write(f'\nFound {outlier_top_20_genes} pct_counts_in_top_20_genes outlier cells ({count_thresh} MADS). Filtering is {"ON" if filt_top20genes_outliers else "OFF"}')
-l.write(f"\nRemoved {mt_outlier} cells (mt outliers: pct_counts_mt > {mt_MADS_thresh} MADS & pct_mt_count > {pct_mt_count_thresh}%)") 
-cellLowQ = adata.n_obs
-#filter AnnData object based on these two additional columns
-adata = adata[(~adata.obs.outlier_total_c) & (~adata.obs.outlier_n_genesC) & (~adata.obs.outlier_top_20_genes) & (~adata.obs.mt_outlier)].copy()
-l.write(f"\nNumber of cells after filtering of low quality cells: {adata.n_obs}. ")
-cellHighQ = adata.n_obs
-Cellrm = f'{((cellLowQ-cellHighQ)/cellLowQ) * 100:.2f}% ({(cellLowQ-cellHighQ)})'
-l.write(f'\n{Cellrm} low quality cells filtered out')
-
-####Correction of ambient RNA
-if corr_ambient_rna:
-	#SoupX works better on clustered data (even if loose clusters)
-	adata_pp = adata.copy()
-	sc.pp.normalize_per_cell(adata_pp)
-	sc.pp.log1p(adata_pp)
-	sc.pp.pca(adata_pp)
-	sc.pp.neighbors(adata_pp)
-	sc.tl.leiden(adata_pp, key_added="soupx_groups")
-
-	# Preprocess variables for SoupX
-	soupx_groups = adata_pp.obs["soupx_groups"]
-	del adata_pp
-
-	cells = adata.obs_names
-	genes = adata.var_names
-	data = adata.X.T
-	adata_raw = sc.read_10x_h5(filename=mat10x.replace("filtered_", "raw_"))
-	adata_raw.var_names_make_unique()
-	data_tod = adata_raw.X.T
-	del adata_raw
-
-	%R -i data -i data_tod -i genes -i cells -i soupx_groups
-	%R library(SoupX)
-	# specify row and column names of data
-	%R rownames(data) = genes
-	%R colnames(data) = cells
-	# ensure correct sparse format for table of counts and table of droplets
-	%R data <- as(data, "sparseMatrix")
-	%R data_tod <- as(data_tod, "sparseMatrix")
-	# Generate SoupChannel Object for SoupX 
-	%R sc = SoupChannel(data_tod, data, calcSoupProfile = FALSE)
-	# Add extra meta data to the SoupChannel object
-	%R soupProf = data.frame(row.names = rownames(data), est = rowSums(data)/sum(data), counts = rowSums(data))
-	%R sc = setSoupProfile(sc, soupProf)
-	# Set cluster information in SoupChannel
-	%R sc = setClusters(sc, soupx_groups)
-	# Estimate contamination fraction
-	%R sc  = autoEstCont(sc, doPlot=FALSE)
-	# Infer corrected table of counts and rount to integer
-	%R outR = adjustCounts(sc, roundToInt = TRUE)
-
-	adata.layers["counts"] = adata.X
-	out = %Rget outR
-	adata.layers["soupX_counts"] = out.T
-	adata.X = adata.layers["soupX_counts"]
-
-# filter out genes that are not detected in at least 20 cells as these are not informative
-# Min 20 cells - filters out 0 count genes
-l.write(f"\nTotal number of genes: {adata.n_vars}")
-geneLowQ = adata.n_vars
-sc.pp.filter_genes(adata, min_cells=20)
-l.write(f"\nNumber of genes after cell filter: {adata.n_vars}. ")
-geneHighQ = adata.n_vars
-Generm = geneLowQ-geneHighQ
-l.write(f'\n{Generm}/{geneLowQ} genes filtered out (ambient RNA)')
-
-##Doublet 
-%R library(Seurat)
-%R library(scater)
-%R library(scDblFinder)
-%R library(BiocParallel)
-
-data_mat = adata.X.T
-
-%R -i data_mat
-%R set.seed(1)
-%R sce = scDblFinder(SingleCellExperiment(list(counts=data_mat)))
-%R doublet_scoreR = sce$scDblFinder.score
-%R doublet_classR = sce$scDblFinder.class
-
-adata.obs["scDblFinder_score"] = %Rget doublet_scoreR
-adata.obs["scDblFinder_class"] = %Rget doublet_classR
-singdoub = adata.obs.scDblFinder_class.value_counts()
-Doubrm = f"{(singdoub['doublet'] / (singdoub['doublet'] + singdoub['singlet'])) * 100:.2f}% ({singdoub['doublet']})"
-l.write(f'\n{Doubrm} doublets')
-
-sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="pct_counts_mt",save=sample+'_QC_FILTERED',
-    title=f'{sample}\n{Cellrm} low quality cells filtered out\n{Generm} genes filtered out (ambient RNA)\n{Doubrm} doublets',
-    show=False)
-
-adata.write(sample+qc_ext)
-
-print(f"QC DONE for {sample}")
-l.close()
 
 
 

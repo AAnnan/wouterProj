@@ -1,52 +1,56 @@
+# Purpose:
+#   Merge Preprocessed samples in ATAC modality
+#   Perform annotation
+
 import snapatac2 as snap
 import pandas as pd
 import numpy as np
 import os
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+print('Anndata: ',ad.__version__,'Snap: ',snap.__version__)
 
-#print('Anndata: ',ad.__version__,'Snap: ',snap.__version__)
+# To change according to samples
+# SING for singulator, ENZ for enzymatic digestion
+Experiment='Wouter21_ENZ'
 
+# Input Files
 DirATAC = '/mnt/etemp/ahrmad/wouter/batch_ATAC'
 Dir10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
 qc_ext = '_filt.h5ad'
-resDir = '/mnt/etemp/ahrmad/wouter/refs'
-Experiment='Wouter21_ENZ_AP'
-#Experiment='Wouter21'
+refDir = '/mnt/etemp/ahrmad/wouter/refs'
+All_Samples = [d for d in os.listdir(Dir10x) if d.startswith('WK')]
 
-Samples = [d for d in os.listdir(Dir10x) if d.startswith('WK')]
-sample_dict = {'Enzymatic Digestion':[],'Singulator':[]}
-for sample in Samples:
+# Create a sample list based on the Experiment name
+Samples = []
+for sample in All_Samples:
 	if '1350' in sample:
-		sample_dict['Enzymatic Digestion'].append(sample)
+		if 'ENZ' in Experiment:
+			Samples.append(sample)
 	else:
-		sample_dict['Singulator'].append(sample)
-if 'ENZ' in Experiment:
-	Samples = sample_dict['Enzymatic Digestion']
-elif 'SING' in Experiment:
-	Samples = sample_dict['Singulator']
-
-if 'ENZ_AP' in Experiment:
-	Samples = [s for s in Samples if 'AP' in s]
-
+		if 'SING' in Experiment:
+			Samples.append(sample)
 
 print(f'Loading Metadata...')
+# Doublet Analysis from RNA modality is required
+# Create Whitelist Barcode Dictionary containing singlet cells by exp
 BC_dict = {}
 for sample in Samples:
-	atacdf = pd.read_csv(f'{resDir}/csv/{sample}_doublet_scores_ATACPeaks_Self.csv')
-	gexdf = pd.read_csv(f'{resDir}/csv/{sample}_doublet_scores_GEX.csv')
+	atacdf = pd.read_csv(f'{refDir}/csv/{sample}_doublet_scores_ATACPeaks_Self.csv')
+	gexdf = pd.read_csv(f'{refDir}/csv/{sample}_doublet_scores_GEX.csv')
 	merged_df_all = atacdf.merge(gexdf, on='obs_names', how='inner')
 	merged_df_all['doublet_class'] = 'WHATAMI'
 	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Only'
-	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Doublet ATAC Only'
-	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet GEX Only'
+	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet GEX Only'
+	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Singlet ATAC Only'
 	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Both'
 	
-	# Retain QC passing cells that were called singlets by at least 1 modality
-	merged_df_all_singlet = merged_df_all[merged_df_all['doublet_class'].str.contains('Only')]
-	singlets = list(merged_df_all_singlet['obs_names'])
-	BC_dict[sample] = singlets
+    # Retain QC passing cells (present in the CSV) 
+    # that were called singlets by at least 1 modality
+    merged_df_all_singlet = merged_df_all[merged_df_all['doublet_class'].str.contains('Singlet')]
+	BC_dict[sample] = list(merged_df_all_singlet['obs_names'])
 
+# Load metadata
 tissueProv_dict = {}
 for sample in Samples:
 	if 'AP' in sample:
@@ -60,7 +64,6 @@ for sample in Samples:
 	else:
 		raise ValueError				
 	tissueProv_dict[sample] = prov
-
 isoMeth_dict = {}
 for sample in Samples:
 	if '1350' in sample:
@@ -68,7 +71,6 @@ for sample in Samples:
 	else:
 		iso = 'Singulator'
 	isoMeth_dict[sample] = iso
-
 timePoint_dict = {}
 for sample in Samples:
 	if 'I' in sample:
@@ -86,7 +88,6 @@ for sample in Samples:
 	else:
 		raise ValueError
 	timePoint_dict[sample] = timeP
-
 mouseID_dict = {}
 for sample in Samples:
 	if 'I-1' in sample:
@@ -101,37 +102,59 @@ for sample in Samples:
 		mID = sample
 	mouseID_dict[sample] = mID
 
-#sample="WK-1350_R3-1_AP"
-#Concatenation
+# Concatenation
+#Create concatenation list
 adata_list = []
 print(f'Loading AnnData...')
 for sample in Samples:
 	print(f'Reading {sample}')
 	a = snap.read(os.path.join(DirATAC,sample+qc_ext)).to_memory()
 	#a.obs['seqDate'] =  pd.Categorical([seqDate_dict[sample]]*a.n_obs)
-
+	# Add metadata
 	a.obs['Experiment'] = pd.Categorical([Experiment]*a.n_obs)
 	a.obs['tissueProv'] =  pd.Categorical([tissueProv_dict[sample]]*a.n_obs)
 	a.obs['timePoint'] =  pd.Categorical([timePoint_dict[sample]]*a.n_obs)
 	a.obs['isoMeth'] =  pd.Categorical([isoMeth_dict[sample]]*a.n_obs)
 	a.obs['mouseID'] =  pd.Categorical([mouseID_dict[sample]]*a.n_obs)
 
+	# Filter cells that arent in the WL BC dict
 	a = a[a.obs.index.isin(BC_dict[sample])].copy()
+	# Rename the cells with their sample to avoid extrinsec duplicate
 	a.obs.index = sample+ '_' + a.obs.index
+	# Export
 	a_fname = f'{sample}_qcTOREMOVE.h5ad'
 	a.write(a_fname)
+	# Append to list for concatenation
 	adata_list.append((sample,a_fname))
-	#del a
+	del a
 
-print(f'Exporting fragments...')
+print(f'Exporting fragments from all samples in {Experiment}...')
 adata = snap.AnnDataSet(adata_list,filename=f'{Experiment}_ATAC.h5ad', add_key='sample')
 adata.obs['Exp'] = [Experiment]*adata.n_obs
 snap.ex.export_fragments(adata, groupby='Exp', prefix='', suffix='.bed.gz')
 adata.close()
+print(f'Launch "bash PC_IOM.sh {Experiment} <number of threads>"')
+
+# Run peak calling after 10x cellcalling, custom QC and concat
+# +IOM
 
 #####################
-############### BASH
-macs3 callpeak --treatment Wouter21_ENZ_AP.bed.gz \
+############### BASH vvv
+#####################
+
+# 1. Peak calling with MACS3
+### PC_IOM.sh
+# (the .bed.gz is the fragment file exported in the previous step)
+#!/bin/bash
+
+set -e
+
+EXP_name="${1}";
+IOM_threads="${2}";
+
+echo "Peak Calling on ${EXP_name}"
+
+macs3 callpeak --treatment ${EXP_name}.bed.gz \
 --format BEDPE \
 --gsize mm \
 --nomodel \
@@ -139,46 +162,59 @@ macs3 callpeak --treatment Wouter21_ENZ_AP.bed.gz \
 --keep-dup all \
 --qvalue 0.01 \
 --call-summits \
---outdir macs_Q01 \
---name Wouter21_ENZ_AP \
+--outdir ${EXP_name}_macs3_Q01 \
+--name ${EXP_name} \
 --verbose 2
 
-macs3 hmmratac --input Wouter21_ENZ_AP.bed.gz \
---format BEDPE \
---outdir macs3_hmmratac \
---name Wouter21_ENZ_AP \
+#macs3 hmmratac --input ${EXP_name}.bed.gz \
+#--format BEDPE \
+#--outdir macs3_hmmratac \
+#--name ${EXP_name} \
 
-Rscript IOM.R "$(pwd)" 500 Wouter21_ENZ_AP_summits.bed Wouter21_ENZ_AP_ITMPeaks.bed
+echo "Iterative Overlap Merging on ${EXP_name}_macs3_Q01/${EXP_name}_summits.bed"
 
-cp macs_Q01/Wouter21_ENZ_AP_ITMPeaks.bed .
-gzip -c Wouter21_ENZ_AP_ITMPeaks.bed > Wouter21_ENZ_AP_ITMPeaks.bed.gz
+Rscript IOM.R "$(pwd)" 500 "${EXP_name}_macs3_Q01/${EXP_name}_summits.bed" "${EXP_name}_ITMPeaks.bed" ${IOM_threads}
+gzip -c ${EXP_name}_ITMPeaks.bed > ${EXP_name}_ITMPeaks.bed.gz
 
-############### BASH
+echo "Peak Calling and IOM done for ${EXP_name}"
+
+#ENV:
+#mm create -n PCIOM python=3.11
+#mmac PCIOM
+#pip install MACS3
+#mm install r-base r-essentials r-data.table bioconductor-biocinstaller bioconductor-genomicranges
+#OR
+#mm env create --file PCIOM.yml
+#Activate mac3 + R env before running
+# bash PC_IOM.sh Wouter21_ENZ 20
+
+
+#####################
+############### BASH ^^^
 #####################
 
-356446 macs_Q01/Wouter21_ENZ_AP_summits.bed
-356446 macs3_Q01/Wouter21_ENZ_AP_summits.bed
-
 ######################################################################################################
 ######################################################################################################
 ######################################################################################################
 ######################################################################################################
-print(f'Concatenating...')
-##sample='WK-1350_R3-1_VP'
+print(f'Concatenating using...')
 import scanpy as sc
 import anndata as ad
+print('Anndata: ',ad.__version__,'Scanpy: ',sc.__version__)
 
 qc_ext='_qcTOREMOVE.h5ad'
 #Concatenation
+# building concat list
 adata_list = []
-print(f'Loading AnnData...')
 for sample in Samples:
     print(f'Reading {sample}')
     a = sc.read_h5ad(sample+qc_ext)
     del a.obsm
     adata_list.append(a)
     del a
+print(f'Concatenating...')
 adata = ad.concat(adata_list, join='inner', merge='same',label='batch',keys=Samples,index_unique='_')
+print(f'Writing {Experiment}_allQC.h5ad')
 adata.write(Experiment + '_allQC.h5ad')
 
 print(f'Analysis...')
@@ -188,13 +224,10 @@ b = snap.pp.import_data(fragment_file=f'{Experiment}.bed.gz',
 	chrom_sizes=snap.genome.mm10,
 	sorted_by_barcode=False,min_num_fragments=0,
 	tempdir='.')
-#b.write(f'{Experiment}_frags.h5ad')
-#b = snap.read(Experiment + '_frags.h5ad').to_memory()
-#data.obs.index = ['WK' + el.split('_WK')[1] +'_'+ el.split('_WK')[0] for el in data.obs.index]
 
+# Reindexing
 data.obs.index = [el.split('_WK')[0] for el in data.obs.index]
 data.obs = data.obs.reindex(index=b.obs.index)
-
 # Check if reindex was done properly
 print('reindex done properly?')
 print(np.all(data.obs.index == b.obs.index))
@@ -202,47 +235,46 @@ print(data.obs.index.equals(b.obs.index))
 print(data.obs['batch'].value_counts(dropna=False))
 print('------------')
 
+# Get fragments,ref from b
 data.obsm = b.obsm.copy()
 data.uns['reference_sequences'] = b.uns['reference_sequences'].copy()
 
+# Build cell-by-peak matrix and store in pm
 pm = snap.pp.make_peak_matrix(data, peak_file=f'{Experiment}_ITMPeaks.bed')
+# Copy fragments,ref from data
 pm.obsm = data.obsm.copy()
 pm.uns['reference_sequences'] = data.uns['reference_sequences'].copy()
 del data,b
 
+# Calculate FRiP 
 snap.metrics.frip(pm, {"FRiP": f'{Experiment}_ITMPeaks.bed.gz'}, inplace=True)
 
+
+# Feature Selection
 #import urllib.request
 #urllib.request.urlretrieve("https://github.com/Boyle-Lab/Blacklist/raw/master/lists/mm10-blacklist.v2.bed.gz", "mm10-blacklist.v2.bed.gz")
-
-snap.pp.select_features(pm, n_features=120000, inplace=True, blacklist=f"{resDir}/mm10-blacklist.v2.bed.gz") #
+snap.pp.select_features(pm, n_features=120000, inplace=True, blacklist=f"{refDir}/mm10-blacklist.v2.bed.gz") #
 
 #Perform dimension reduction using the spectrum of the normalized graph Laplacian defined by pairwise similarity between cells
 snap.tl.spectral(pm, weighted_by_sd=True, chunk_size=80000, features='selected', distance_metric='cosine', inplace=True)
-
 snap.tl.umap(pm, use_rep='X_spectral', key_added='umap', random_state=None)
+
 #neighborhood graph of observations stored in data using the method specified by method. The distance metric used is Euclidean.
 snap.pp.knn(pm, n_neighbors=50, use_rep='X_spectral', method='kdtree')
 
 #Cluster cells using the Leiden algorithm [Traag18]
-#snap.tl.leiden(pm, resolution=0.5, min_cluster_size=10)
-
 for resLeiden in [.25,.5,1,1.5,2]:
 	print(f'Leiden clustering at {resLeiden} resolution')
 	snap.tl.leiden(pm, resolution=resLeiden, key_added=f"leiden_res{resLeiden}")
 	snap.pl.umap(pm, color=f"leiden_res{resLeiden}", height=500,interactive=False, show=False, out_file=f"{Experiment}_leiden_res{resLeiden}.pdf")
-	#sc.pl.umap(pm,color=f"leiden_res{resLeiden}",legend_loc="on data",save=f"{sample}_leiden_res{resLeiden}",title=sample,show=False)
-#snap.pl.umap(pm, color='leiden', height=500,interactive=False, show=False, out_file=exp+'_LeidenUMAP.pdf')
+	sc.pl.umap(pm,color=f"leiden_res{resLeiden}",legend_loc="on data",save=f"{Experiment}_leiden_res{resLeiden}_sc.pdf",title=Experiment,show=False)
+
+# Export Final peak matrix anndata
 pm.write(f'{Experiment}_Post.h5ad')
 
-import scanpy as sc
+#pm = snap.read(Experiment + '_Post.h5ad').to_memory()
 
-pm = snap.read(Experiment + '_Post.h5ad').to_memory()
-
-#OTHER UMAP PLOTS
-for resLeiden in [.25,.5,1,1.5,2]:
-	print(f'Leiden clustering at {resLeiden} resolution')
-	sc.pl.umap(pm,color=f"leiden_res{resLeiden}",legend_loc="on data",save=f"{Experiment}_leiden_res{resLeiden}_sc.pdf",title=Experiment,show=False)
+# save OTHER UMAP PLOTS
 sc.pl.umap(pm,color=["n_fragment", "frac_mito", "tsse"],save=Experiment+'_UMAP_QC',show=False)
 sc.pl.umap(pm,color=["batch"],save=Experiment+'_batch',title=f'{Experiment}_ATAC',show=False)
 sc.pl.umap(pm,color=["timePoint"],save=Experiment+'_timePoint',title=f'{Experiment}_ATAC',show=False)
@@ -250,23 +282,17 @@ sc.pl.umap(pm,color=["isoMeth"],save=Experiment+'_isoMeth',title=f'{Experiment}_
 sc.pl.umap(pm,color=["mouseID"],save=Experiment+'_mouseID',title=f'{Experiment}_ATAC',show=False)
 #sc.pl.umap(pm,color=["seqDate"],save=Experiment+'_seqDate',title=f'{Experiment}_ATAC',show=False)
 sc.pl.umap(pm,color=["tissueProv"],save=Experiment+'_tissueProv',title=f'{Experiment}_ATAC',show=False)
-isoMeth2 = []
-for el in pm.obs.index:
-    if '1350' in el:
-        isoMeth2.append('Enzymatic Digestion')
-    elif 'Citrate' in el or 'Castrate' in el or 'Contrl' in el or 'Day3' in el:
-        isoMeth2.append('Singulator (Putative)')
-    elif 'BL6_I' in el or 'BL6_AP' in el:
-        isoMeth2.append('Singulator')
-pm.obs["isoMeth2"] = isoMeth2
-sc.pl.umap(pm,color=["isoMeth2"],save=Experiment+'_isoMethPut',title=f'{Experiment}_ATAC',show=False)
 
+# Create Gene matrix Anndata
+# Build Gene matrix
 gene_matrix = snap.pp.make_gene_matrix(pm, snap.genome.mm10)
+# Do some basic filtering 
 sc.pp.filter_genes(gene_matrix, min_cells= 5)
 sc.pp.normalize_total(gene_matrix)
 sc.pp.log1p(gene_matrix)
 sc.external.pp.magic(gene_matrix, solver="approximate")
 gene_matrix.obsm["X_umap"] = pm.obsm["X_umap"]
+# Export Gene matrix to Anndata
 gene_matrix.write(f'{Experiment}_GeneMat.h5ad')
 
 
@@ -345,7 +371,7 @@ sc.pl.umap(adata,color=["L3_genes_Paper"],save=Experiment+'_atac_L3_genes_fromMa
 sc.pl.umap(adata,color=["L_genes_Paper"],save=Experiment+'_atac_L_genes_fromMain',title=f'{Experiment}_atac_L sig paper',show=False)
 
 #Celltyping based on Supp gene lists
-gene_set_table = f'{resDir}/table_s8_summary.txt'
+gene_set_table = f'{refDir}/table_s8_summary.txt'
 gene_set_df = pd.read_csv(gene_set_table, sep='\t')
 
 for gene_set in gene_set_df.columns:
