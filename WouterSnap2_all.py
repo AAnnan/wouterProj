@@ -185,6 +185,7 @@ echo "Peak Calling and IOM done for ${EXP_name}"
 #mm install r-base r-essentials r-data.table bioconductor-biocinstaller bioconductor-genomicranges
 #OR
 #mm env create --file PCIOM.yml
+
 #Activate mac3 + R env before running
 # bash PC_IOM.sh Wouter21_ENZ 20
 
@@ -294,7 +295,6 @@ sc.external.pp.magic(gene_matrix, solver="approximate")
 gene_matrix.obsm["X_umap"] = pm.obsm["X_umap"]
 # Export Gene matrix to Anndata
 gene_matrix.write(f'{Experiment}_GeneMat.h5ad')
-
 
 # Annotation
 import scanpy as sc

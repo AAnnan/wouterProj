@@ -155,7 +155,7 @@ for folder in *_MACS_Q01; do
         cd "$folder"
 
         # Launch the R script with the specified arguments
-        Rscript IOM.R "$(pwd)" 500 "${folder_name}_summits.bed" "${folder_name}_ITMPeaks.bed"
+        Rscript IOM.R "$(pwd)" 500 "${folder_name}_summits.bed" "${folder_name}_ITMPeaks.bed 20"
         echo "Peak Merging done: $folder_name"
 
         # Move back to the parent directory

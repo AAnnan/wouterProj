@@ -248,16 +248,6 @@ sc.pl.umap(adata,color=["mouseID"],save=Experiment+'_mouseID',title=Experiment,s
 sc.pl.umap(adata,color=["seqDate"],save=Experiment+'_seqDate',title=Experiment,show=False)
 sc.pl.umap(adata,color=["tissueProv"],save=Experiment+'_tissueProv',title=Experiment,show=False)
 
-isoMeth2 = []
-for el in adata.obs.index:
-    if '1350' in el:
-        isoMeth2.append('Enzymatic Digestion')
-    elif 'Citrate' in el or 'Castrate' in el or 'Contrl' in el or 'Day3' in el:
-        isoMeth2.append('Singulator (Putative)')
-    elif 'BL6_I' in el or 'BL6_AP' in el:
-        isoMeth2.append('Singulator')
-adata.obs["isoMeth2"] = isoMeth2
-sc.pl.umap(adata,color=["isoMeth2"],save=Experiment+'_isoMethPut',title=Experiment,show=False)
 print(f'{Experiment} UMAP DONE')
 
 print('Writing final h5ad')
@@ -265,9 +255,10 @@ adata.write(Experiment + Feat_Dim_Red_ext)
 
 
 
+### Annotation
 print('Annotation')
 adata = sc.read_h5ad(Experiment + Feat_Dim_Red_ext)
-### Annotation
+
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 import numba

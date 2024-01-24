@@ -40,7 +40,7 @@ corr_ambient_rna = 'CellBender'
 #CellBender.sh
 
 qc_ext = '_qc.h5ad'
-logFile = 'Wouter_scRNA_AP_ENZ_CB_log'
+logFile = 'Wouter_scRNA_CB_log'
 
 
 l = open(logFile, 'a')
