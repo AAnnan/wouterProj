@@ -48,3 +48,8 @@ for exp in exp10x:
 	df.to_csv(f'{refDir}/csv/{exp}_doublet_scores_ATACPeaks_Self.csv', index=False)
 
 	print(f'{exp} QC DONE and files created')
+
+
+
+
+	

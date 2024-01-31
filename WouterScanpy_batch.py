@@ -7,7 +7,7 @@ from scipy.stats import median_abs_deviation
 from scipy.sparse import csr_matrix, issparse
 import os
 
-#For Correction of ambient RNA
+#For R code
 import anndata2ri
 import logging
 import rpy2.rinterface_lib.callbacks as rcb

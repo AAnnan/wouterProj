@@ -22,7 +22,6 @@ DirATAC = '/mnt/etemp/ahrmad/wouter/batch_ATAC'
 Dir10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
 qc_ext = '_filt.h5ad'
 refDir = '/mnt/etemp/ahrmad/wouter/refs'
-resDir = '/mnt/etemp/ahrmad/wouter/'
 All_Samples = [d for d in os.listdir(Dir10x) if d.startswith('WK')]
 
 # Create a sample list based on the Experiment name
@@ -129,3 +128,5 @@ sc.external.pp.magic(gene_matrix, solver="approximate")
 gene_matrix.obsm["X_umap"] = pm.obsm["X_umap"]
 # Export Gene matrix to Anndata
 gene_matrix.write(f'{Experiment}_GeneMat.h5ad')
+
+

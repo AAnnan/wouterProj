@@ -1,8 +1,3 @@
-##Annotate Cells
-
-# Purpose:
-#   Cell annotation / Cell typing
-import snapatac2 as snap
 import numpy as np
 import scanpy as sc
 import pandas as pd
@@ -10,32 +5,21 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import anndata as ad
 import os
-print('Scanpy: ',sc.__version__,'Snap: ',snap.__version__)
 sc.set_figure_params(figsize=(5, 5))
+
 
 refDir = '/mnt/etemp/ahrmad/wouter/refs'
 ### TO CHECK WHEN CHANGING SAMPLES ###
-Dir = '/mnt/etemp/ahrmad/wouter/SING_ATAC'
-Experiment='Wouter21_SING'
+DirRNA = '/mnt/etemp/ahrmad/wouter/ENZ_RNA'
+Experiment='Wouter21_ENZ'
 ### TO CHECK WHEN CHANGING SAMPLES ###
-if not (os.path.exists(refDir)) & (os.path.exists(Dir)):
+if not (os.path.exists(refDir)) & (os.path.exists(DirRNA)):
     raise ValueError('Check folder paths')
 gene_set_table = f'{refDir}/table_s8_summary.txt'
 
-post_ext = '_GeneMat.h5ad'
-#CREATION OF THE GENE MAT
-#pm = snap.read(Experiment + '_Post.h5ad').to_memory()
-## Create Gene matrix Anndata
-## Build Gene matrix
-#adata = snap.pp.make_gene_matrix(pm, snap.genome.mm10)
-## Do some basic filtering 
-#sc.pp.filter_genes(adata, min_cells= 5)
-#sc.pp.normalize_total(adata)
-#sc.pp.log1p(adata)
-#sc.external.pp.magic(adata, solver="approximate")
-#adata.obsm["X_umap"] = pm.obsm["X_umap"]
 
-
+post_ext = '_post.h5ad'
+post_ext = '_Norm_FeatSel_DimRed.h5ad'
 ### Annotation
 adata = sc.read_h5ad(Experiment + post_ext)
 adata.var.index = adata.var.index.str.upper()
@@ -45,7 +29,6 @@ gset_df = pd.read_csv(gene_set_table, sep='\t')
 gset_dict = dict()
 for gset_name in gset_df.columns:
     gset_dict[gset_name] = gset_df[gset_name].dropna().str.upper().tolist()
-
 gset_dict = {key: [item for item in value if item in adata.var_names] for key, value in gset_dict.items()}
 
 # Cell Types UMAPs
@@ -117,15 +100,13 @@ elif 'SING' in Experiment:
     karthaus_plotting(r1_adata,'RegenDay1')
     karthaus_plotting(c28_adata,'CastrateDay28')
 
+pdfjam --nup 4x2 --landscape --a4paper figures/umap*Imm*.png --outfile SING_Imm.pdf
+pdfjam --nup 4x2 --landscape --a4paper figures/umap*Str*.png --outfile SING_Str.pdf
+pdfjam --nup 4x2 --landscape --a4paper figures/umap*Epi*.png --outfile SING_Epi.pdf
 
-#pdfjam --nup 4x2 --landscape --a4paper figures/umap*Imm*.png --outfile ENZ_Imm_CB.pdf
-#pdfjam --nup 4x2 --landscape --a4paper figures/umap*Str*.png --outfile ENZ_Str_CB.pdf
-#pdfjam --nup 4x2 --landscape --a4paper figures/umap*Epi*.png --outfile ENZ_Epi_CB.pdf
-
-#pdfjam --nup 4x2 --landscape --a4paper figures/umap*Imm*.png --outfile SING_Imm_CB.pdf
-#pdfjam --nup 4x2 --landscape --a4paper figures/umap*Str*.png --outfile SING_Str_CB.pdf
-#pdfjam --nup 4x2 --landscape --a4paper figures/umap*Epi*.png --outfile SING_Epi_CB.pdf
-
+pdfjam --nup 4x2 --landscape --a4paper figures/umap*Imm*.png --outfile ENZ_Imm.pdf
+pdfjam --nup 4x2 --landscape --a4paper figures/umap*Str*.png --outfile ENZ_Str.pdf
+pdfjam --nup 4x2 --landscape --a4paper figures/umap*Epi*.png --outfile ENZ_Epi.pdf
 
 
 
@@ -133,68 +114,6 @@ elif 'SING' in Experiment:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import scanpy as sc
-import matplotlib.pyplot as plt
-import snapatac2 as snap
-import scanpy as sc
-import anndata as ad
-import pandas as pd
-import numpy as np
-import os
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
-
-# To change according to samples
-# SING for singulator, ENZ for enzymatic digestion
-Experiments='Wouter21_ENZ'
-
-# Input Files
-DirExp = '/mnt/etemp/ahrmad/wouter/ENZ_ATAC'
-qc_ext = '_filt.h5ad'
-refDir = '/mnt/etemp/ahrmad/wouter/refs'
-
-
-# Annotation
-snap_ext = '_GeneMat.h5ad'
-
-adata = sc.read_h5ad(Experiment + snap_ext)
-#adata = gene_matrix
-
-#UMAP GENE COLORS
-#adata.var.index = adata.var.index.str.upper()
-#adata.raw.var_names = adata.raw.var_names.str.upper()
 
 
 #Ori p1
@@ -209,12 +128,15 @@ markerGenes = {
 #luminal 2, Epcam, CD24a, Krt8, Krt18, Psca, Krt4, Tacst2, Ly6a
 #luminal 3 (ionocyte), Epcam, CD24a, Krt8, Krt18, Foxi1, Atp6v1g3, Atp6b1b
 
+#UMAP GENE COLORS
+adata.var.index = adata.var.index.str.upper()
+
 markerGenes_in_data = dict()
 for ct, markers in markerGenes.items():
     markers_found = list()
     for marker in markers:
-        if marker in adata.var.index:
-            markers_found.append(marker)
+        if marker.upper() in adata.var.index:
+            markers_found.append(marker.upper())
     markerGenes_in_data[ct] = markers_found
 
 for ct in list(markerGenes_in_data.keys()):
@@ -230,43 +152,21 @@ for ct in list(markerGenes_in_data.keys()):
         return_fig=True
     )
     plt.suptitle(Experiment)
-    plt.savefig(Experiment+f'_UMAP_atac_{ct.upper()}.pdf')
+    plt.savefig(Experiment+f'_UMAP_{ct.upper()}.pdf')
     plt.close()
 
-#DOTPLOT
-sc.pl.dotplot(
-    adata,
-    groupby="leiden_res0.5",
-    var_names=markerGenes_in_data,
-    standard_scale="var",  # standard scale: normalize each gene to range from 0 to 1
-)
-plt.suptitle(Experiment)
-plt.subplots_adjust(bottom = 0.25)
-plt.tight_layout()
-plt.savefig(Experiment+f'_atac_DOTPLOT_LUMINAL.pdf')
-plt.close()
 
 #Celltyping based on Paper genes 
-sc.tl.score_genes(adata, [m for m in markerGenes['L1']], ctrl_size=50, n_bins=25, score_name='L1_genes_Paper')
-sc.tl.score_genes(adata, [m for m in markerGenes['L2']], ctrl_size=50, n_bins=25, score_name='L2_genes_Paper')
-sc.tl.score_genes(adata, [m for m in markerGenes['L3']], ctrl_size=50, n_bins=25, score_name='L3_genes_Paper')
-sc.tl.score_genes(adata, [m for m in markerGenes['L']], ctrl_size=50, n_bins=25, score_name='L_genes_Paper')
+sc.tl.score_genes(adata, [m.upper() for m in markerGenes['L1']], ctrl_size=50, n_bins=25, score_name='L1_genes_Paper')
+sc.tl.score_genes(adata, [m.upper() for m in markerGenes['L2']], ctrl_size=50, n_bins=25, score_name='L2_genes_Paper')
+sc.tl.score_genes(adata, [m.upper() for m in markerGenes['L3']], ctrl_size=50, n_bins=25, score_name='L3_genes_Paper')
+sc.tl.score_genes(adata, [m.upper() for m in markerGenes['L']], ctrl_size=50, n_bins=25, score_name='L_genes_Paper')
 
-sc.pl.umap(adata,color=["L1_genes_Paper"],save=Experiment+'_atac_L1_genes_fromMain',title=f'{Experiment}_atac_L1 sig paper',show=False)
-sc.pl.umap(adata,color=["L2_genes_Paper"],save=Experiment+'_atac_L2_genes_fromMain',title=f'{Experiment}_atac_L2 sig paper',show=False)
-sc.pl.umap(adata,color=["L3_genes_Paper"],save=Experiment+'_atac_L3_genes_fromMain',title=f'{Experiment}_atac_L3 sig paper',show=False)
-sc.pl.umap(adata,color=["L_genes_Paper"],save=Experiment+'_atac_L_genes_fromMain',title=f'{Experiment}_atac_L sig paper',show=False)
+sc.pl.umap(adata,color=["L1_genes_Paper"],save=Experiment+'_L1_genes_fromMain',title=f'{Experiment}_L1 sig paper',show=False)
+sc.pl.umap(adata,color=["L2_genes_Paper"],save=Experiment+'_L2_genes_fromMain',title=f'{Experiment}_L2 sig paper',show=False)
+sc.pl.umap(adata,color=["L3_genes_Paper"],save=Experiment+'_L3_genes_fromMain',title=f'{Experiment}_L3 sig paper',show=False)
+sc.pl.umap(adata,color=["L_genes_Paper"],save=Experiment+'_L_genes_fromMain',title=f'{Experiment}_L sig paper',show=False)
 
-#Celltyping based on Supp gene lists
-gene_set_table = f'{refDir}/table_s8_summary.txt'
-gene_set_df = pd.read_csv(gene_set_table, sep='\t')
-
-for gene_set in gene_set_df.columns:
-	ctrl = 100
-	print(f'{gene_set} S8')
-	genes = gene_set_df[gene_set]
-	sc.tl.score_genes(adata, genes, ctrl_size=ctrl, n_bins=25, score_name=gene_set)
-	sc.pl.umap(adata,color=gene_set,save=f'{Experiment}_atac_{gene_set}_SuppS8_ctrl{ctrl}',title=f'{Experiment}_{gene_set}',show=False)
 
 main_ct_marker_list = {"Epithelial": ["Epcam"], "Immune": ["Ptprc"]}  # present
 
@@ -295,18 +195,48 @@ sub_ct_marker_list = {
 
 for gene_set in sub_ct_marker_list.keys():
 	print(f'{gene_set} DanDict')
-	genes = pd.Series(sub_ct_marker_list[gene_set])
+	genes = pd.Series(sub_ct_marker_list[gene_set]).str.upper()
 	sc.tl.score_genes(adata, genes, ctrl_size=50, n_bins=25, score_name=gene_set)
-	sc.pl.umap(adata,color=gene_set,save=f'{Experiment}_atac_{gene_set}_sub_ct_marker',title=f'{Experiment}_{gene_set}_sub_ct_marker',show=False)
+	sc.pl.umap(adata,color=gene_set,save=f'{Experiment}_{gene_set}_sub_ct_marker',title=f'{Experiment}_{gene_set}_sub_ct_marker',show=False)
 
 for gene_set in main_ct_marker_list.keys():
 	print(f'{gene_set} DanDict')
-	genes = pd.Series(main_ct_marker_list[gene_set])
+	genes = pd.Series(main_ct_marker_list[gene_set]).str.upper()
 	sc.tl.score_genes(adata, genes, ctrl_size=50, n_bins=25, score_name=gene_set)
-	sc.pl.umap(adata,color=gene_set,save=f'{Experiment}_atac_{gene_set}_main_ct_marker',title=f'{Experiment}_{gene_set}_main_ct_marker',show=False)
+	sc.pl.umap(adata,color=gene_set,save=f'{Experiment}_{gene_set}_main_ct_marker',title=f'{Experiment}_{gene_set}_main_ct_marker',show=False)
 
+#L1_genes = typing_gene_df['Epi_Luminal_1'].str.upper()
+#L2_genes = typing_gene_df['Epi_Luminal_2Psca'].str.upper()
+#L3_genes = typing_gene_df['Epi_Luminal_3Foxi1'].str.upper()
+#L_genes = typing_gene_df['Epi_Luminal_SV'].str.upper() #seminal vesicule
+#
+#sc.tl.score_genes(adata, L1_genes, ctrl_size=200, n_bins=25, score_name='L1_genes')
+#sc.tl.score_genes(adata, L2_genes, ctrl_size=200, n_bins=25, score_name='L2_genes')
+#sc.tl.score_genes(adata, L3_genes, ctrl_size=200, n_bins=25, score_name='L3_genes')
+#sc.tl.score_genes(adata, L_genes, ctrl_size=200, n_bins=25, score_name='L_genes')
+#
+# of genes in lists not found in adata
+#sum(~np.isin(pd.concat([L_genes,L1_genes,L2_genes,L3_genes]),adata.var.index))
+#
+#sc.pl.umap(adata,color=["L1_genes"],save=Experiment+'_L1_genes_fromSupp',title=f'{Experiment}_L1 sig',show=False)
+#sc.pl.umap(adata,color=["L2_genes"],save=Experiment+'_L2_genes_fromSupp',title=f'{Experiment}_L2 sig',show=False)
+#sc.pl.umap(adata,color=["L3_genes"],save=Experiment+'_L3_genes_fromSupp',title=f'{Experiment}_L3 sig',show=False)
+#sc.pl.umap(adata,color=["L_genes"],save=Experiment+'_L_genes_fromSupp',title=f'{Experiment}_L sig',show=False)
 
+#import snapatac2 as snap
+#snap.pl.umap(adata,color="batch",out_file=Experiment+'_batch.html',interactive=False)
 
-
+#main_ct_marker_list = list(Epithelial = c("Epcam"), Immune = "Ptprc") # present
+# sub_ct_marker_list = list(Bcells = c("Cd19","Ms4a1"), Tcells = c("Cd3g","Cd3d","Cd3e","Cd247"), macrophages = c("Cd14", "Aif1"), endothelium = c("Pecam1","Vwf"),
+#       lymphatic_endothelium = c("Pecam1","Prox1" ), glia = c("Sox10"), myofibroblast = c("Acta2","Myh11","Rspo3" ), smooth_muscle = c("Acta2", "Notch3"),
+#       mesenchymal_1 = c("Col5a2", "Lama2", "Zeb1", "Wnt2", "Wnt6", "Wnt10a", "Rorb"), mesenschymal_2 = c("Col5a2", "Lama2", "Zeb1", "Sult1e1", "Fgf10", "Rspo1"),
+#       basal = c("Epcam", "Krt5", "Krt14", "Trp63"), seminal_vesicle_basal = c("Epcam", "Pax2", "Krt5", "Krt14","Trp63", "Calml3"), 
+#       luminal_1 = c("Epcam", "Cd24a", "Krt8", "Krt18", "Nkx3-1", "Pbsn", PROM1, CD26/DPP4)
+#, luminal_2 = c("Epcam", "Cd24a", "Krt8", "Krt18", "Psca", "Krt4", "Tacstd2", "Ly6a"),
+#       luminal_3 = c("Epcam", "Cd24a", "Krt8", "Krt18", "Foxi1", "Atp6v1g3", "Atp6v1b1"),
+# seminal_vesicle_luminal = c( "Epcam", "Pax2", "Krt8", "Krt18", "Pate4"),
+#        seminal_vesicle_ionocyte = c("Epcam", "Pax2", "Foxi1") ) # already alias-corrected
+### big absences from 'measured_genes_all': none
+### big absences from 'measured_genes' (Experiment-specific): Cd19, Cd3*, Cd31/Pecam1, Sox10, some Wnt, Cd24a, ("Foxi1", "Atp6v1g3", "Atp6v1b1") discriminating the luminal_3, 
 
 

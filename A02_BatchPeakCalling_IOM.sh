@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Purpose:
 #    Run peak calling after 10x cellcalling and QC
 #    Perform IOM on Peaks
