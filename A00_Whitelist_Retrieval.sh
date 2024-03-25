@@ -7,6 +7,7 @@ set -e
 # Purpose:
 #    To get the barcodes of cells called by 10x pipeline
 #    Used as a whitelist filter in the import by SNAPATAC2
+# ./A00_Whitelist_Retrieval.sh /mnt/ndata/daniele/wouter/Processed/CellRangerArc/ .
 
 # Variables
 base_directory="${1}";

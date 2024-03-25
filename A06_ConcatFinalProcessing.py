@@ -12,13 +12,20 @@ import numpy as np
 import os
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+sc.settings.verbosity = 0
+sc.settings.set_figure_params(
+    dpi_save=200,
+    fontsize=12,
+    facecolor="white",
+    frameon=False,
+)
+print(f'Anndata: {ad.__version__}\nSnapatac2: {snap.__version__}\nScanpy: {sc.__version__}')
 
 # To change according to samples
 # SING for singulator, ENZ for enzymatic digestion
-Experiments='Wouter21_ENZ'
+Experiment='Wouter21_SING'
 
 # Input Files
-DirATAC = '/mnt/etemp/ahrmad/wouter/batch_ATAC'
 Dir10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
 qc_ext = '_filt.h5ad'
 refDir = '/mnt/etemp/ahrmad/wouter/refs'
@@ -34,8 +41,8 @@ for sample in All_Samples:
 		if 'SING' in Experiment:
 			Samples.append(sample)
 
-print(f'Concatenating using...')
-print('Anndata: ',ad.__version__,'Scanpy: ',sc.__version__)
+print(f'Concatenating')
+print(f'Samples: {Samples}')
 
 qc_ext='_qcTOREMOVE.h5ad'
 #Concatenation
@@ -49,37 +56,23 @@ for sample in Samples:
     del a
 print(f'Concatenating...')
 adata = ad.concat(adata_list, join='inner', merge='same',label='batch',keys=Samples,index_unique='_')
-print(f'Writing {Experiment}_allQC.h5ad')
-adata.write(Experiment + '_allQC.h5ad')
 
 print(f'Analysis...')
-data = snap.read(Experiment + '_allQC.h5ad').to_memory()
-
-b = snap.pp.import_data(fragment_file=f'{Experiment}.bed.gz',
+b = snap.pp.import_data(fragment_file=f'{Experiment}.tsv.gz',
 	chrom_sizes=snap.genome.mm10,
 	sorted_by_barcode=False,min_num_fragments=0,
 	tempdir='.')
 
-# Reindexing
-data.obs.index = [el.split('_WK')[0] for el in data.obs.index]
-data.obs = data.obs.reindex(index=b.obs.index)
-# Check if reindex was done properly
-print('reindex done properly?')
-print(np.all(data.obs.index == b.obs.index))
-print(data.obs.index.equals(b.obs.index))
-print(data.obs['batch'].value_counts(dropna=False))
-print('------------')
-
 # Get fragments,ref from b
-data.obsm = b.obsm.copy()
-data.uns['reference_sequences'] = b.uns['reference_sequences'].copy()
+adata.obsm = b.obsm.copy()
+adata.uns['reference_sequences'] = b.uns['reference_sequences'].copy()
 
 # Build cell-by-peak matrix and store in pm
-pm = snap.pp.make_peak_matrix(data, peak_file=f'{Experiment}_ITMPeaks.bed')
+pm = snap.pp.make_peak_matrix(adata, peak_file=f'{Experiment}_ITMPeaks.bed',counting_strategy='paired-insertion')
 # Copy fragments,ref from data
-pm.obsm = data.obsm.copy()
-pm.uns['reference_sequences'] = data.uns['reference_sequences'].copy()
-del data,b
+pm.obsm = adata.obsm.copy()
+pm.uns['reference_sequences'] = adata.uns['reference_sequences'].copy()
+del adata,b
 
 # Calculate FRiP 
 snap.metrics.frip(pm, {"FRiP": f'{Experiment}_ITMPeaks.bed.gz'}, inplace=True)
@@ -105,17 +98,21 @@ for resLeiden in [.25,.5,1,1.5,2]:
 
 # Export Final peak matrix anndata
 pm.write(f'{Experiment}_Post.h5ad')
-
 #pm = snap.read(Experiment + '_Post.h5ad').to_memory()
 
 # save OTHER UMAP PLOTS
-sc.pl.umap(pm,color=["n_fragment", "frac_mito", "tsse"],save=Experiment+'_UMAP_QC',show=False)
-sc.pl.umap(pm,color=["batch"],save=Experiment+'_batch',title=f'{Experiment}_ATAC',show=False)
-sc.pl.umap(pm,color=["timePoint"],save=Experiment+'_timePoint',title=f'{Experiment}_ATAC',show=False)
-sc.pl.umap(pm,color=["isoMeth"],save=Experiment+'_isoMeth',title=f'{Experiment}_ATAC',show=False)
-sc.pl.umap(pm,color=["mouseID"],save=Experiment+'_mouseID',title=f'{Experiment}_ATAC',show=False)
-#sc.pl.umap(pm,color=["seqDate"],save=Experiment+'_seqDate',title=f'{Experiment}_ATAC',show=False)
-sc.pl.umap(pm,color=["tissueProv"],save=Experiment+'_tissueProv',title=f'{Experiment}_ATAC',show=False)
+# order like RNA
+desired_order = pd.Categorical(['Day28','Intact', 'RegenDay1', 'RegenDay2', 'RegenDay3'])
+pm.obs['timePoint'] = pm.obs['timePoint'].astype(pd.CategoricalDtype(categories=desired_order, ordered=True))
+
+#Plot
+sc.pl.umap(pm,color=["n_fragment", "frac_mito", "tsse"],save=Experiment+'_UMAP_QC.png',show=False)
+sc.pl.umap(pm,color=["batch"],save=Experiment+'_batch.png',title=f'{Experiment}_ATAC',show=False)
+sc.pl.umap(pm,color=["timePoint"],save=Experiment+'_timePoint.png',title=f'{Experiment}_ATAC',show=False)
+sc.pl.umap(pm,color=["isoMeth"],save=Experiment+'_isoMeth.png',title=f'{Experiment}_ATAC',show=False)
+sc.pl.umap(pm,color=["mouseID"],save=Experiment+'_mouseID.png',title=f'{Experiment}_ATAC',show=False)
+#sc.pl.umap(pm,color=["seqDate"],save=Experiment+'_seqDate.png',title=f'{Experiment}_ATAC',show=False)
+sc.pl.umap(pm,color=["tissueProv"],save=Experiment+'_tissueProv.png',title=f'{Experiment}_ATAC',show=False)
 
 # Create Gene matrix Anndata
 # Build Gene matrix

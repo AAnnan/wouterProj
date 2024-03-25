@@ -12,14 +12,14 @@ import numpy as np
 import os
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-print('Anndata: ',ad.__version__,'Snap: ',snap.__version__)
+print('Snap: ',snap.__version__)
 
 # To change according to samples
 # SING for singulator, ENZ for enzymatic digestion
-Experiments=['Wouter21_ENZ'+'Wouter21_SING']
+Experiments=['Wouter21_ENZ','Wouter21_SING']
 
 # Input Files
-DirATAC = '/mnt/etemp/ahrmad/wouter/batch_ATAC'
+DirATAC = '/mnt/etemp/ahrmad/wouter/ATAC'
 Dir10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
 qc_ext = '_filt.h5ad'
 refDir = '/mnt/etemp/ahrmad/wouter/refs'
@@ -48,8 +48,10 @@ for Experiment in Experiments:
 	# Create Whitelist Barcode Dictionary containing singlet cells by exp
 	BC_dict = {}
 	for sample in Samples:
-		atacdf = pd.read_csv(f'{refDir}/csv/{sample}_doublet_scores_ATACPeaks_Self.csv')
-		gexdf = pd.read_csv(f'{refDir}/csv/{sample}_doublet_scores_GEX.csv')
+		atacdf = pd.read_csv(f'{refDir}/csv/{sample}_doublet_scores_ATAC_AMU.csv')
+		gexdf = pd.read_csv(f'{refDir}/csv/{sample}_doublet_scores_CB_GEX.csv')
+		print(sample)
+		print(f'Pre-merging: ATAC: {atacdf.shape[0]} GEX: {gexdf.shape[0]} cells')
 		merged_df_all = atacdf.merge(gexdf, on='obs_names', how='inner')
 		merged_df_all['doublet_class'] = 'WHATAMI'
 		merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Only'
@@ -57,9 +59,11 @@ for Experiment in Experiments:
 		merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Singlet ATAC Only'
 		merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Both'
 		
+		print(f'Post-merging: {merged_df_all.shape[0]} cells')
 	    # Retain QC passing cells (present in the CSV) 
 	    # that were called singlets by at least 1 modality
 	    merged_df_all_singlet = merged_df_all[merged_df_all['doublet_class'].str.contains('Singlet')]
+		print(f'Singlets: {merged_df_all_singlet.shape[0]} cells')
 		BC_dict[sample] = list(merged_df_all_singlet['obs_names'])
 
 	# Load metadata
@@ -127,15 +131,13 @@ for Experiment in Experiments:
 		#a.obs['seqDate'] =  pd.Categorical([seqDate_dict[sample]]*a.n_obs)
 		# Add metadata
 		a.obs['Experiment'] = pd.Categorical([Experiment]*a.n_obs)
-		a.obs['tissueProv'] =  pd.Categorical([tissueProv_dict[sample]]*a.n_obs)
-		a.obs['timePoint'] =  pd.Categorical([timePoint_dict[sample]]*a.n_obs)
-		a.obs['isoMeth'] =  pd.Categorical([isoMeth_dict[sample]]*a.n_obs)
-		a.obs['mouseID'] =  pd.Categorical([mouseID_dict[sample]]*a.n_obs)
+		a.obs['tissueProv'] = pd.Categorical([tissueProv_dict[sample]]*a.n_obs)
+		a.obs['timePoint'] = pd.Categorical([timePoint_dict[sample]]*a.n_obs)
+		a.obs['isoMeth'] = pd.Categorical([isoMeth_dict[sample]]*a.n_obs)
+		a.obs['mouseID'] = pd.Categorical([mouseID_dict[sample]]*a.n_obs)
 
 		# Filter cells that arent in the WL BC dict
 		a = a[a.obs.index.isin(BC_dict[sample])].copy()
-		# Rename the cells with their sample to avoid extrinsec duplicate
-		a.obs.index = sample+ '_' + a.obs.index
 		# Export
 		a_fname = f'{resDir}{Experiment}/{sample}_qcTOREMOVE.h5ad'
 		a.write(a_fname)
@@ -147,7 +149,7 @@ for Experiment in Experiments:
 	print(f'Exporting fragments from all samples in {Experiment}...')
 	adata = snap.AnnDataSet(adata_list,filename=f'{Experiment}_ATAC.h5ad', add_key='sample')
 	adata.obs['Exp'] = [Experiment]*adata.n_obs
-	snap.ex.export_fragments(adata, groupby='Exp', prefix='', suffix='.bed.gz',out_dir=f'{resDir}{Experiment}')
+	snap.ex.export_fragments(adata, groupby='Exp', prefix='', suffix='.tsv.gz',out_dir=f'{resDir}{Experiment}')
 	adata.close()
 
 

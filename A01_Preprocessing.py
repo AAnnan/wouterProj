@@ -13,7 +13,7 @@ print('snapatac2 version:',snap.__version__)
 
 # Input files
 path10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
-pathRes = '/mnt/etemp/ahrmad/wouter/batch_ATAC'
+pathRes = '/mnt/etemp/ahrmad/wouter/ATAC'
 exp10x = [d for d in os.listdir(path10x) if d.startswith('WK') and os.path.isdir(os.path.join(path10x, d))]
 
 # QC filters
@@ -26,8 +26,8 @@ Alt_maxFrags = 80000
 nmads = 6 
 
 for exp in exp10x:
-	print(f'{exp}')
 	print(f'IMPORT AND FILTER')
+	print(f'{exp}')
 	#Import ATAC fragments from 10x pipeline
 	data = snap.pp.import_data(
 		fragment_file=os.path.join(path10x,exp,'outs/atac_fragments.tsv.gz'),
@@ -49,6 +49,6 @@ for exp in exp10x:
 	
 	#Export fragments and anndata
 	data.obs['Exp'] = pd.Categorical([exp]*data.n_obs)
-	snap.ex.export_fragments(data, groupby='Exp', prefix='', suffix='.bed.gz')
+	snap.ex.export_fragments(data, groupby='Exp', prefix='', suffix='.tsv.gz')
 	data.write(filename=f'{exp}_filt.h5ad')
 	del data

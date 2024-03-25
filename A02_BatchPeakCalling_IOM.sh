@@ -6,13 +6,37 @@ set -e
 #    Run peak calling after 10x cellcalling and QC
 #    Perform IOM on Peaks
 
+# Usage:
+#ENV:
+#mm env create --file PCIOM.yml
+#mmac PCIOM
+#pip install MACS3 numpy pandas scipy statsmodels
+#or
+#mm create -n PCIOM python=3.11
+#mmac PCIOM
+#pip install MACS3 numpy pandas scipy statsmodels
+#mm install r-base r-essentials r-data.table bioconductor-biocinstaller bioconductor-genomicranges
+
+#Activate PCIOM env before running bash A02_BatchPeakCalling_IOM.sh
+# Have IOM.R in folder
+
+#Amulet (https://github.com/UcarLab/AMULET)
+# Changes: 
+#                   FragmentFileOverlapCounter.py line 231  'is__cell_barcode' -> 'is_cell'
+#                   FragmentFileOverlapCounter.py line 193  np.object -> object
+#                   peakoverlap.py line 193 np.object -> object
+#                   AMULET.py line 102,133,138  np.object -> object
+
+
+# Script
+
 # 1. Peak calling with MACS3
 
-# Use a for loop to iterate over files ending in "bed.gz"
-# (the .bed.gz are fragments exported in the previous step)
-for file in ./*.bed.gz; do
+# Use a for loop to iterate over files ending in "tsv.gz"
+# (the .tsv.gz are fragments exported in the previous step)
+for file in ./*.tsv.gz; do
     # Get the filename without extension
-    filename=$(basename "$file" .bed.gz)
+    filename=$(basename "$file" .tsv.gz)
     echo "Peak calling: $filename"
     
     macs3 callpeak --treatment $file \
@@ -47,7 +71,8 @@ for folder in *_macs3_Q01; do
         cd "$folder"
 
         # Launch the R script with the specified arguments
-        Rscript IOM.R "$(pwd)" 500 "${folder_name}_summits.bed" "${folder_name}_ITMPeaks.bed 20"
+        echo Launching IOM.R "$(pwd)" 500 "${folder_name}_summits.bed" "${folder_name}_ITMPeaks.bed" 20
+        Rscript IOM.R "$(pwd)" 500 "${folder_name}_summits.bed" "${folder_name}_ITMPeaks.bed" 20
         echo "Peak Merging done: $folder_name"
 
         # Move back to the parent directory
@@ -57,13 +82,21 @@ for folder in *_macs3_Q01; do
 done
 ###
 
-#ENV:
-#mm env create --file PCIOM.yml
-#or
-#mm create -n PCIOM python=3.11
-#mmac PCIOM
-#pip install MACS3
-#mm install r-base r-essentials r-data.table bioconductor-biocinstaller bioconductor-genomicranges
 
-#Activate mPCIOM env before running
-# bash A02_BatchPeakCalling_IOM.sh
+# 3. AMULET count based method for detecting multiplets from snATAC-seq data.
+
+# Use a for loop to iterate over files ending in "tsv.gz"
+# (the .tsv.gz are fragments exported in the previous step)
+for file in ./*.tsv.gz; do
+    # Get the filename without extension
+    filename=$(basename "$file" .tsv.gz)
+    echo "Detecting multiplets: $filename"
+    
+    mkdir -p ${filename}_amulet
+    
+    ./amulet/AMULET.sh $file /mnt/ndata/daniele/wouter/Processed/CellRangerArc/${filename}/outs/per_barcode_metrics.csv ./amulet/mouse_chromosomes_noxy.txt ./amulet/mm10-blacklist.v2.bed ${filename}_amulet ./amulet/.
+
+    echo -e "DONE: $filename\n"
+done
+###
+

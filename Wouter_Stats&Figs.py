@@ -11,12 +11,14 @@ import os
 path10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
 exp10x = [d for d in os.listdir(path10x) if d.startswith('WK') and os.path.isdir(os.path.join(path10x, d))]
 Samples = exp10x
-pathATAC = '/mnt/etemp/ahrmad/wouter/batch_ATAC'
-pathGEX = '/mnt/etemp/ahrmad/wouter/batch_RNA'
+pathATAC = '/mnt/etemp/ahrmad/wouter/ATAC'
+pathGEX = '/mnt/etemp/ahrmad/wouter/RNA_CB'
 qc_ext = '_qc.h5ad'
 wldir=os.path.join(pathATAC, "whitelists")
 ATACcsv = "_doublet_scores_ATACPeaks_Self.csv"
-GEXcsv = "_doublet_scores_GEX.csv"
+GEXcsv = "_doublet_scores_CB_GEX.csv"
+#GEXcsv = "_doublet_scores_ATAC_AMU.csv"
+refDir = '/mnt/etemp/ahrmad/wouter/refs'
 
 
 #ATAC STATS gathering
@@ -280,8 +282,8 @@ plt.close()
 for sample in Samples:
 	print(sample)
 	# Step 1: Read data from the two CSV files
-	atacfile = f'{sample}{ATACcsv}'
-	gexfile = f'{sample}{GEXcsv}'
+	atacfile = f'{refDir}/csv/{sample}{ATACcsv}'
+	gexfile = f'{refDir}/csv/{sample}{GEXcsv}'
 
 	atacdf = pd.read_csv(atacfile)
 	gexdf = pd.read_csv(gexfile)
@@ -321,8 +323,8 @@ for sample in Samples:
 for sample in Samples:
 	print(sample)
 	# Step 1: Read data from the two CSV files
-	atacfile = f'{sample}{ATACcsv}'
-	gexfile = f'{sample}{GEXcsv}'
+	atacfile = f'{refDir}/csv/{sample}{ATACcsv}'
+	gexfile = f'{refDir}/csv/{sample}{GEXcsv}'
 
 	atacdf = pd.read_csv(atacfile)
 	gexdf = pd.read_csv(gexfile)
@@ -376,14 +378,14 @@ for sample in Samples:
 	plt.close()
 
 #All Samples merged:
-scatter = True
-density = True
+scatter = False
+density = False
 barplot = True
 frames = []
 for sample in Samples:
 	print(sample)
-	atacfile = f'{sample}{ATACcsv}'
-	gexfile = f'{sample}{GEXcsv}'
+	atacfile = f'{refDir}/csv/{sample}{ATACcsv}'
+	gexfile = f'{refDir}/csv/{sample}{GEXcsv}'
 	atacdf = pd.read_csv(atacfile)
 	gexdf = pd.read_csv(gexfile)
 	# Merge the dataframes on 'obs_names'
@@ -391,17 +393,18 @@ for sample in Samples:
 	frames.append(merged_df)
 merged_df_all = pd.concat(frames)
 
-merged_df_all['average_doublet_score'] = (merged_df_all['doublet_score_x'] + merged_df_all['doublet_score_y']) / 2
 
-merged_df_all['doublet_class'] = 'WHAAT'
+merged_df_all['doublet_class'] = 'QC_FILTERED'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Both'
-merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_score_y'] == -0.05), 'doublet_class'] = 'Singlet Unimod (ATAC)'
-merged_df_all.loc[(merged_df_all['doublet_score_x'] == -0.05) & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Unimod (GEX)'
-merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_score_y'] == -0.05), 'doublet_class'] = 'Doublet Unimod (ATAC)'
-merged_df_all.loc[(merged_df_all['doublet_score_x'] == -0.05) & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Unimod (GEX)'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Both'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Doublet ATAC Only'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet GEX Only'
+
+merged_df_all['average_doublet_score'] = (merged_df_all['doublet_score_x'] + merged_df_all['doublet_score_y']) / 2
+merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_score_y'] == -0.05), 'doublet_class'] = 'Singlet Unimod (ATAC)'
+merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_score_y'] == -0.05), 'doublet_class'] = 'Doublet Unimod (ATAC)'
+merged_df_all.loc[(merged_df_all['doublet_score_x'] == -0.05) & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Unimod (GEX)'
+merged_df_all.loc[(merged_df_all['doublet_score_x'] == -0.05) & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Unimod (GEX)'
 
 if barplot:
 	# Create a bar plot
@@ -496,8 +499,8 @@ sing = [0,0,0]
 for sample in Samples:
 	print(sample)
 	# Step 1: Read data from the two CSV files
-	atacfile = f'{sample}{ATACcsv}'
-	gexfile = f'{sample}{GEXcsv}'
+	atacfile = f'{refDir}/csv/{sample}{ATACcsv}'
+	gexfile = f'{refDir}/csv/{sample}{GEXcsv}'
 
 	atacdf = pd.read_csv(atacfile)
 	gexdf = pd.read_csv(gexfile)
@@ -568,20 +571,18 @@ frames = []
 ENZSamples = [sample for sample in Samples if '1350' in sample]
 for sample in ENZSamples:
 	print(sample)
-	atacfile = f'{sample}{ATACcsv}'
-	gexfile = f'{sample}{GEXcsv}'
+	atacfile = f'{refDir}/csv/{sample}{ATACcsv}'
+	gexfile = f'{refDir}/csv/{sample}{GEXcsv}'
 	atacdf = pd.read_csv(atacfile)
 	gexdf = pd.read_csv(gexfile)
 	# Merge the dataframes on 'obs_names'
 	merged_df = atacdf.merge(gexdf, on='obs_names', how='outer').fillna(-0.05)
 	frames.append(merged_df)
 merged_df_all = pd.concat(frames)
-merged_df_all['doublet_class'] = 'WHAAT'
+
+
+merged_df_all['doublet_class'] = 'QC_FILTERED'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Both'
-merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_score_y'] == -0.05), 'doublet_class'] = 'Singlet Unimod (ATAC)'
-merged_df_all.loc[(merged_df_all['doublet_score_x'] == -0.05) & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Unimod (GEX)'
-merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_score_y'] == -0.05), 'doublet_class'] = 'Doublet Unimod (ATAC)'
-merged_df_all.loc[(merged_df_all['doublet_score_x'] == -0.05) & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Unimod (GEX)'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Both'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Doublet ATAC Only'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet GEX Only'
@@ -616,20 +617,18 @@ frames = []
 SingSamples = [sample for sample in Samples if '1350' not in sample]
 for sample in SingSamples:
 	print(sample)
-	atacfile = f'{sample}{ATACcsv}'
-	gexfile = f'{sample}{GEXcsv}'
+	atacfile = f'{refDir}/csv/{sample}{ATACcsv}'
+	gexfile = f'{refDir}/csv/{sample}{GEXcsv}'
 	atacdf = pd.read_csv(atacfile)
 	gexdf = pd.read_csv(gexfile)
 	# Merge the dataframes on 'obs_names'
 	merged_df = atacdf.merge(gexdf, on='obs_names', how='outer').fillna(-0.05)
 	frames.append(merged_df)
 merged_df_all = pd.concat(frames)
-merged_df_all['doublet_class'] = 'WHAAT'
+
+
+merged_df_all['doublet_class'] = 'QC_FILTERED'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Both'
-merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_score_y'] == -0.05), 'doublet_class'] = 'Singlet Unimod (ATAC)'
-merged_df_all.loc[(merged_df_all['doublet_score_x'] == -0.05) & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Unimod (GEX)'
-merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_score_y'] == -0.05), 'doublet_class'] = 'Doublet Unimod (ATAC)'
-merged_df_all.loc[(merged_df_all['doublet_score_x'] == -0.05) & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Unimod (GEX)'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Both'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Doublet ATAC Only'
 merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet GEX Only'
@@ -912,8 +911,8 @@ cell_info['n_cell_Singlets'] = []
 for sample in Samples:
 	print(sample)
 	# Step 1: Read data from the two CSV files
-	atacfile = f'{sample}{ATACcsv}'
-	gexfile = f'{sample}{GEXcsv}'
+	atacfile = f'{refDir}/csv/{sample}{ATACcsv}'
+	gexfile = f'{refDir}/csv/{sample}{GEXcsv}'
 
 	atacdf = pd.read_csv(atacfile)
 	gexdf = pd.read_csv(gexfile)

@@ -16,7 +16,7 @@ IOM_threads="${2}";
 
 echo "Peak Calling on ${EXP_name}"
 
-macs3 callpeak --treatment ${EXP_name}.bed.gz \
+macs3 callpeak --treatment ${EXP_name}.tsv.gz \
 --format BEDPE \
 --gsize mm \
 --nomodel \
@@ -28,7 +28,7 @@ macs3 callpeak --treatment ${EXP_name}.bed.gz \
 --name ${EXP_name} \
 --verbose 2
 
-#macs3 hmmratac --input ${EXP_name}.bed.gz \
+#macs3 hmmratac --input ${EXP_name}.tsv.gz \
 #--format BEDPE \
 #--outdir macs3_hmmratac \
 #--name ${EXP_name} \

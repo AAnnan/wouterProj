@@ -29,6 +29,7 @@ sc.settings.set_figure_params(
 )
 
 CellBender = True
+refDir = '/mnt/etemp/ahrmad/wouter/refs'
 
 if CellBender:
 	Dir10x = '/mnt/etemp/ahrmad/wouter/CellBender/'
@@ -41,7 +42,6 @@ else:
 Samples = [d.split(PathMat)[0] for d in os.listdir(Dir10x) if d.startswith('WK') if d.endswith(PathMat)]
 Samples = Samples + cantCellBend if CellBender else Samples
 
-refDir = '/mnt/etemp/ahrmad/wouter/refs'
 if not os.path.exists(refDir+'/csv'):
     os.makedirs(refDir+'/csv')
     print(f"Directory {refDir+'/csv'} created.")
@@ -49,11 +49,11 @@ else:
     print(f"Directory {refDir+'/csv'} already exists.")
 
 ### Quality Control 
-pct_mt_count_thresh = 10
-mt_MADS_thresh = 2
+pct_mt_count_thresh = 12
+mt_MADS_thresh = 3
 count_MADS_thresh = 5
-max_HB_Ribo_pct = 70 #%
-max_Top20_pct = 85 #%
+max_HB_Ribo_pct = 75 #%
+max_Top20_pct = 70 #%
 
 qc_ext = '_qc.h5ad'
 gex_doub_csv_ext = '_doublet_scores_CB_GEX.csv'
@@ -116,7 +116,7 @@ for sample in Samples:
 	# pct_counts_ribo,pct_counts_hb filtered with a hard threshold of "max_HB_Ribo_pct"%
 	adata.obs["outlier_Ribo_HB"] = (adata.obs['pct_counts_ribo'] > max_HB_Ribo_pct) | (adata.obs['pct_counts_hb'] >= max_HB_Ribo_pct)
 	# pct_counts_in_top_20_genes filtered with a hard threshold of "max_Top20_pct"%
-	adata.obs["outlier_top_20_genes"] = adata.obs['pct_counts_in_top_20_genes'] >= max_Top20_pct
+	adata.obs["outlier_top_20_genes"] = (is_outlier(adata, "pct_counts_in_top_20_genes", count_MADS_thresh)) | (adata.obs['pct_counts_in_top_20_genes'] >= max_Top20_pct)
 	#adata.obs["outlier_top_20_genes"] = (is_outlier(adata, "pct_counts_in_top_20_genes", count_MADS_thresh))
 
 	#pct_counts_Mt is filtered with "mt_MADS_thresh" MADs AND percentage of mitochondrial counts exceeding "pct_mt_count_thresh"

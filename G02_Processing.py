@@ -8,7 +8,6 @@ from scipy.sparse import csr_matrix, issparse
 import anndata as ad
 import os
 
-#For Correction of ambient RNA
 import anndata2ri
 import logging
 import rpy2.rinterface_lib.callbacks as rcb
@@ -29,9 +28,9 @@ print('Anndata: ',ad.__version__,'Scanpy: ',sc.__version__)
 
 
 ### TO CHECK WHEN CHANGING SAMPLES ###
-DirRNA = '/mnt/etemp/ahrmad/wouter/batch_RNA_CB'
-Experiment='Wouter21_SING_CB'
+Experiment='Wouter21_ENZ_CB'
 ### TO CHECK WHEN CHANGING SAMPLES ###
+DirRNA = '/mnt/etemp/ahrmad/wouter/RNA_CB'
 refDir = '/mnt/etemp/ahrmad/wouter/refs'
 if not os.path.exists(refDir):
     raise ValueError
@@ -42,6 +41,7 @@ post_ext = '_post.h5ad'
 atac_doub_csv_ext = '_doublet_scores_ATACPeaks_Self.csv'
 gex_doub_csv_ext = '_doublet_scores_CB_GEX.csv'
 
+
 Samps = [s.split(qc_ext)[0] for s in os.listdir(DirRNA) if s.startswith('WK')]
 Samples = []
 if 'ENZ' in Experiment:
@@ -51,25 +51,7 @@ elif 'SING' in Experiment:
 else:
     raise ValueError
 
-
 print(f'Loading Samples Metadata...')
-BC_dict = {}
-for sample in Samples:
-    atacdf = pd.read_csv(f'{refDir}/csv/{sample}{atac_doub_csv_ext}')
-    gexdf = pd.read_csv(f'{refDir}/csv/{sample}{gex_doub_csv_ext}')
-    mergDF = atacdf.merge(gexdf, on='obs_names', how='inner')
-    mergDF['doublet_class'] = 'WHATAMI'
-    mergDF.loc[(mergDF['doublet_class_x'] == 'singlet') & (mergDF['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Only'
-    mergDF.loc[(mergDF['doublet_class_x'] == 'doublet') & (mergDF['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet GEX Only'
-    mergDF.loc[(mergDF['doublet_class_x'] == 'singlet') & (mergDF['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Singlet ATAC Only'
-    mergDF.loc[(mergDF['doublet_class_x'] == 'doublet') & (mergDF['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Both'
-    
-    # Check if the doublet_class column contains 'WHATAMI'
-    if any(mergDF['doublet_class'].str.contains('WHATAMI')):
-        raise ValueError(f"Some cells have doublet status unassigned")
-
-    mergDF_singlet = mergDF[mergDF['doublet_class'].str.contains('Singlet')]
-    BC_dict[sample] = list(mergDF_singlet['obs_names'])
 
 seqDate_dict = {}
 with open(f'{refDir}/sequencing_batches.txt', 'r') as seqbatchfile:
@@ -146,13 +128,41 @@ for sample in Samples:
     sample_adata.obs['mouseID'] = mouseID_dict[sample]
     
     #Filter doublets per sample
-    sample_adata = sample_adata[np.isin(sample_adata.obs.index, BC_dict[sample])].copy()
+    atacdf = pd.read_csv(f'{refDir}/csv/{sample}{atac_doub_csv_ext}')
+    gexdf = pd.read_csv(f'{refDir}/csv/{sample}{gex_doub_csv_ext}')
+    print(sample)
+    print(f'Pre-merging: ATAC: {atacdf.shape[0]} GEX: {gexdf.shape[0]} cells')
+    mergDF = atacdf.merge(gexdf, on='obs_names', how='inner')
+    mergDF['doublet_class'] = 'WHATAMI'
+    mergDF.loc[(mergDF['doublet_class_x'] == 'singlet') & (mergDF['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet Only'
+    mergDF.loc[(mergDF['doublet_class_x'] == 'doublet') & (mergDF['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Singlet GEX Only'
+    mergDF.loc[(mergDF['doublet_class_x'] == 'singlet') & (mergDF['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Singlet ATAC Only'
+    mergDF.loc[(mergDF['doublet_class_x'] == 'doublet') & (mergDF['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Both'
+    
+    # Check if the doublet_class column contains 'WHATAMI'
+    if any(mergDF['doublet_class'].str.contains('WHATAMI')):
+        raise ValueError(f"Some cells have doublet status unassigned")
+    print(f'Post-merging: {mergDF.shape[0]} cells')
+    
+    #Select only singlets
+    mergDF_singlet = mergDF[mergDF['doublet_class'] == 'Singlet Only']
+
+    #mergDF_singlet = mergDF.copy() #-> for doublet comparison between AMU and SCRUBLET
+
+    print(f'Singlets: {mergDF_singlet.shape[0]} cells')
+
+    sample_adata = sample_adata[np.isin(sample_adata.obs.index, mergDF_singlet['obs_names'])].copy()
+    
+    mergDF_singlet.index = mergDF_singlet['obs_names']
+    mergDF_singlet_sorted = mergDF_singlet.reindex(sample_adata.obs.index)
+    assert list(sample_adata.obs_names) == list(mergDF_singlet_sorted['obs_names']),'Adata and dblt CSV not in same order'
+    sample_adata.obs['doublet_class'] = mergDF_singlet_sorted['doublet_class']
+
     adata_list.append(sample_adata)
-    #del a
+
 
 print(f'Concatenating...')
 adata = ad.concat(adata_list, join='inner', merge='same',label='batch',keys=Samples,index_unique='_')
-
 
 ### SCRAN Normalization
 print('Starting SCRAN Normalization\nlog1p with Scran estimated size factors')
@@ -228,6 +238,7 @@ plt.close()
 
 print(f'{Experiment} Feature Selection with Deviance DONE')
 
+adata.layers["No_normalization"] = adata.X.copy()
 adata.X = adata.layers["scran_normalization"]
 
 #PCA
@@ -245,7 +256,11 @@ for resLeiden in [.25,.5,1,1.25,1.5,2,2.5,3]:
     sc.pl.umap(adata,color=f"leiden_res{resLeiden}",legend_loc="on data",save=f"{Experiment}_leiden_res{resLeiden}",title=Experiment,show=False)
 
 #OTHER UMAP PLOTS
-sc.pl.umap(adata,color=["total_counts", "pct_counts_mt", "scDblFinder_score", "scDblFinder_class"],save=Experiment+'_UMAP_QC',show=False)
+#QC
+sc.pl.umap(adata,color=["scDblFinder_score", "scDblFinder_class"],save=Experiment+'_UMAP_Dblt_QC',show=False)
+sc.pl.umap(adata,color=["doublet_class"],save=Experiment+'_UMAP_Dblt_QC',show=False)
+sc.pl.umap(adata,color=["total_counts", "log1p_total_counts", "n_genes_by_counts", "log1p_n_genes_by_counts"],save=Experiment+'_UMAP_Counts_QC',show=False)
+sc.pl.umap(adata,color=["pct_counts_in_top_20_genes", "pct_counts_mt", "pct_counts_ribo", "pct_counts_hb"],save=Experiment+'_UMAP_PctCounts_QC',show=False)
 sc.pl.umap(adata,color=["batch"],save=Experiment+'_batch',title=Experiment,show=False)
 sc.pl.umap(adata,color=["timePoint"],save=Experiment+'_timePoint',title=Experiment,show=False)
 sc.pl.umap(adata,color=["isoMeth"],save=Experiment+'_isoMeth',title=Experiment,show=False)
