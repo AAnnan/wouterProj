@@ -39,7 +39,7 @@ else:
 	Dir10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
 	PathMat = '/outs/filtered_feature_bc_matrix.h5'
 
-Samples = [d.split(PathMat)[0] for d in os.listdir(Dir10x) if d.startswith('WK') if d.endswith(PathMat)]
+Samples = [d.split(PathMat)[0] for d in os.listdir(Dir10x) if d.startswith('WK') if d.endswith('_CellBender_filtered.h5')]
 Samples = Samples + cantCellBend if CellBender else Samples
 
 if not os.path.exists(refDir+'/csv'):
@@ -51,9 +51,9 @@ else:
 ### Quality Control 
 pct_mt_count_thresh = 12
 mt_MADS_thresh = 3
-count_MADS_thresh = 5
+count_MADS_thresh = 4
 max_HB_Ribo_pct = 75 #%
-max_Top20_pct = 70 #%
+max_Top20_pct = 75 #%
 
 qc_ext = '_qc.h5ad'
 gex_doub_csv_ext = '_doublet_scores_CB_GEX.csv'
@@ -62,8 +62,10 @@ logFile = 'Wouter_scRNA_log_QC'
 l = open(logFile, 'a')
 for sample in Samples:
 	print(f'\n###################\n Processing {sample}...\n###################')
-	if sample in cantCellBend:
-		mat10x = f'/mnt/ndata/daniele/wouter/Processed/CellRangerArc/{sample}/outs/filtered_feature_bc_matrix.h5'
+	if CellBender:
+		mat10x = Dir10x + sample + PathMat
+		if (sample in cantCellBend):
+			mat10x = f'/mnt/ndata/daniele/wouter/Processed/CellRangerArc/{sample}/outs/filtered_feature_bc_matrix.h5'
 	else:
 		mat10x = Dir10x + sample + PathMat
 	adata = sc.read_10x_h5(filename=mat10x)
@@ -73,7 +75,7 @@ for sample in Samples:
 	###QC METRICS
 	# mitochondrial genes |ribosomal genes | hemoglobin genes.
 	adata.var["mt"] = adata.var_names.str.startswith("mt-")
-	adata.var["ribo"] = adata.var_names.str.startswith(("Rps", "Rpl"))
+	adata.var["ribo"] = adata.var_names.str.
 	adata.var["hb"] = adata.var_names.str.startswith("Hb")
 	adata.obs['batch']=sample
 
@@ -90,14 +92,13 @@ for sample in Samples:
 	plt.close()
 
 	# Violin plots
-	sc.pl.violin(adata, ['total_counts', 'n_genes_by_counts', 'pct_counts_in_top_20_genes',],multi_panel=True,groupby='batch',rotation=0.0000001,save=sample+'_counts_top20.pdf')
-	sc.pl.violin(adata, ['pct_counts_mt', 'pct_counts_ribo', 'pct_counts_hb'],multi_panel=True,groupby='batch',rotation=0.0000001,save=sample+'_MT_Ribo_HB.pdf')
+	sc.pl.violin(adata, ['total_counts', 'n_genes_by_counts', 'pct_counts_in_top_20_genes','pct_counts_mt', 'pct_counts_ribo', 'pct_counts_hb'],multi_panel=True,groupby='batch',rotation=0.0000001,save=sample+'_PreQC.pdf')
 
 	# Scatter plots of MT, ribo, hb, top_20_genes counts in each cell
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_mt',title=sample+'\npct_counts_mt',save=sample+'_MT.pdf')
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_ribo',title=sample+'\npct_counts_ribo',save=sample+'_Ribo.pdf')
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_hb',title=sample+'\npct_counts_hb',save=sample+'_HB.pdf')
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_in_top_20_genes',title=sample+'\npct_counts_in_top_20_genes',save=sample+'_top_20_genes.pdf')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_mt',title=sample+'\npct_counts_mt',save=sample+'_MT.pdf')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_ribo',title=sample+'\npct_counts_ribo',save=sample+'_Ribo.pdf')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_hb',title=sample+'\npct_counts_hb',save=sample+'_HB.pdf')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_in_top_20_genes',title=sample+'\npct_counts_in_top_20_genes',save=sample+'_top_20_genes.pdf')
 
 	###FILTERING LOW QUALITY CELLS
 	#with automatic thresholding based on MAD (median absolute deviations)
@@ -117,7 +118,6 @@ for sample in Samples:
 	adata.obs["outlier_Ribo_HB"] = (adata.obs['pct_counts_ribo'] > max_HB_Ribo_pct) | (adata.obs['pct_counts_hb'] >= max_HB_Ribo_pct)
 	# pct_counts_in_top_20_genes filtered with a hard threshold of "max_Top20_pct"%
 	adata.obs["outlier_top_20_genes"] = (is_outlier(adata, "pct_counts_in_top_20_genes", count_MADS_thresh)) | (adata.obs['pct_counts_in_top_20_genes'] >= max_Top20_pct)
-	#adata.obs["outlier_top_20_genes"] = (is_outlier(adata, "pct_counts_in_top_20_genes", count_MADS_thresh))
 
 	#pct_counts_Mt is filtered with "mt_MADS_thresh" MADs AND percentage of mitochondrial counts exceeding "pct_mt_count_thresh"
 	adata.obs["mt_outlier"] = is_outlier(adata, "pct_counts_mt", mt_MADS_thresh) & (adata.obs["pct_counts_mt"] > pct_mt_count_thresh)
@@ -136,12 +136,6 @@ for sample in Samples:
 	#filter AnnData object
 	adata = adata[(~adata.obs.outlier_total_c) & (~adata.obs.outlier_n_genesC) & (~adata.obs.mt_outlier) & (~adata.obs.outlier_top_20_genes) & (~adata.obs.outlier_Ribo_HB)].copy()
 	
-	# Log # cells Postfiltering
-	#record n cells after filtering
-	ncellHighQ_log = adata.n_obs
-	#record the diff
-	Cellrm_log = f'{((ncellLowQ_log-ncellHighQ_log)/ncellLowQ_log) * 100:.2f}% ({(ncellLowQ_log-ncellHighQ_log)})'
-
 	##Doublet Analysis
 	%R library(Seurat)
 	%R library(scater)
@@ -162,12 +156,15 @@ for sample in Samples:
 	df.to_csv(f'{refDir}/csv/{sample}{gex_doub_csv_ext}', index=False)
 
 	# Scatter plots of MT, ribo, hb, top_20_genes counts in each cell post filtering
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_mt',title=sample+'\npct_counts_mt_PostQC',save=sample+'_MT_PostQC.pdf')
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_ribo',title=sample+'\npct_counts_ribo_PostQC',save=sample+'_Ribo_PostQC.pdf')
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_hb',title=sample+'\npct_counts_hb_PostQC',save=sample+'_HB_PostQC.pdf')
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_in_top_20_genes',title=sample+'\npct_counts_in_top_20_genes_PostQC',save=sample+'_top_20_genes_PostQC.pdf')
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="scDblFinder_score",title=sample+'\n_dbScore_PostQC',save=sample+'_dbScore_PostQC')
-	sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="scDblFinder_class",title=sample+'\n_dbClass_PostQC',save=sample+'_dbClass_PostQC')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_mt',title=sample+'\npct_counts_mt_PostQC',save=sample+'_MT_PostQC.pdf')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_ribo',title=sample+'\npct_counts_ribo_PostQC',save=sample+'_Ribo_PostQC.pdf')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_hb',title=sample+'\npct_counts_hb_PostQC',save=sample+'_HB_PostQC.pdf')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts",color='pct_counts_in_top_20_genes',title=sample+'\npct_counts_in_top_20_genes_PostQC',save=sample+'_top_20_genes_PostQC.pdf')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="scDblFinder_score",title=sample+'\n_dbScore_PostQC',save=sample+'_dbScore_PostQC')
+	#sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="scDblFinder_class",title=sample+'\n_dbClass_PostQC',save=sample+'_dbClass_PostQC')
+	
+	# Violin plots
+	sc.pl.violin(adata, ['total_counts', 'n_genes_by_counts', 'pct_counts_in_top_20_genes','pct_counts_mt', 'pct_counts_ribo', 'pct_counts_hb','scDblFinder_score'],multi_panel=True,groupby='batch',rotation=0.0000001,save=sample+'_PostQC.pdf')
 
 	# Log doublet
 	singdoub = adata.obs.scDblFinder_class.value_counts()
@@ -177,14 +174,14 @@ for sample in Samples:
 	print(f"QC DONE for {sample}")
 
     l.write(f'\n###################\n Processing {sample}...\n###################')
-    l.write(f"\nTotal number of cells: {adata.n_obs}")
+    l.write(f"\nTotal number of cells: {ncellLowQ_log}")
     l.write(f"\nRemoved {outlier_total_c} cells (log1p_total_counts outliers: {count_MADS_thresh} MADS)")
     l.write(f"\nRemoved {outlier_n_genesC} cells (log1p_n_genes_by_counts outliers: {count_MADS_thresh} MADS)")
     l.write(f'\nRemoved {ncell_outlier_top_20_genes} pct_counts_in_top_20_genes outlier cells ({count_MADS_thresh} MADS).')
     l.write(f"\nRemoved {ncell_mt_outlier_log} cells (mt outliers: pct_counts_mt > {mt_MADS_thresh} MADS & pct_mt_count > {pct_mt_count_thresh}%)") 
     l.write(f"\nLabeled {ncell_mt_above_8pct_log} cells as high mt cells (pct_mt_count > {pct_mt_count_thresh}%)") 
-    l.write(f"\nNumber of cells after filtering of low quality cells: {ncellHighQ_log}. ")
-    l.write(f'\n{Cellrm_log} low quality cells filtered out')
+    l.write(f"\nNumber of cells after filtering of low quality cells: {adata.n_obs}. ")
+    l.write(f'\n{f'{((ncellLowQ_log-ncellHighQ_log)/ncellLowQ_log) * 100:.2f}% ({(ncellLowQ_log-ncellHighQ_log)})'} low quality cells filtered out')
     l.write(f'\n{Doubrm_log} doublets')
 l.close()
 

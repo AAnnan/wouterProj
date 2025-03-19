@@ -14,7 +14,8 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 sc.settings.verbosity = 0
 sc.settings.set_figure_params(
-    dpi_save=200,
+	figsize=(6, 6),
+    dpi_save=300,
     fontsize=12,
     facecolor="white",
     frameon=False,
@@ -55,13 +56,15 @@ for sample in Samples:
     adata_list.append(a)
     del a
 print(f'Concatenating...')
-adata = ad.concat(adata_list, join='inner', merge='same',label='batch',keys=Samples,index_unique='_')
+adata = ad.concat(adata_list, join='inner', merge='same',label='batch',keys=Samples,index_unique=None)
 
 print(f'Analysis...')
 b = snap.pp.import_data(fragment_file=f'{Experiment}.tsv.gz',
 	chrom_sizes=snap.genome.mm10,
 	sorted_by_barcode=False,min_num_fragments=0,
 	tempdir='.')
+
+adata.obs = adata.obs.reindex(index=b.obs.index)
 
 # Get fragments,ref from b
 adata.obsm = b.obsm.copy()

@@ -28,10 +28,14 @@ print('Anndata: ',ad.__version__,'Scanpy: ',sc.__version__)
 
 
 ### TO CHECK WHEN CHANGING SAMPLES ###
-Experiment='Wouter21_ENZ_CB'
+Experiment='Wouter21_SING_CB'
 ### TO CHECK WHEN CHANGING SAMPLES ###
+# choose one of the layers
+layerToUse = 'SCT_data' #'scran_normalization', 'SCT_data', 'SCT_counts', 'log1p_norm', 'No_norm'
+SingletBoth = True
 DirRNA = '/mnt/etemp/ahrmad/wouter/RNA_CB'
 refDir = '/mnt/etemp/ahrmad/wouter/refs'
+
 if not os.path.exists(refDir):
     raise ValueError
 
@@ -48,6 +52,8 @@ if 'ENZ' in Experiment:
     Samples.extend([s for s in Samps if '1350' in s])
 elif 'SING' in Experiment:
     Samples.extend([s for s in Samps if '1350' not in s])
+    Samples.remove('WK-1501_BL6_INTACT_AP_Test3_SORT')
+    Samples.remove('WK-1384_BL6_Intact_AP_2_SLT')
 else:
     raise ValueError
 
@@ -144,8 +150,12 @@ for sample in Samples:
         raise ValueError(f"Some cells have doublet status unassigned")
     print(f'Post-merging: {mergDF.shape[0]} cells')
     
-    #Select only singlets
-    mergDF_singlet = mergDF[mergDF['doublet_class'] == 'Singlet Only']
+    if SingletBoth:
+        # Select only singlets
+        mergDF_singlet = mergDF[mergDF['doublet_class'] == 'Singlet Only']
+    else:
+        # Select cell called singlets in at least 1 modaliyt
+        mergDF_singlet = mergDF[mergDF['doublet_class'].str.contains('Singlet')]
 
     #mergDF_singlet = mergDF.copy() #-> for doublet comparison between AMU and SCRUBLET
 
@@ -163,9 +173,11 @@ for sample in Samples:
 
 print(f'Concatenating...')
 adata = ad.concat(adata_list, join='inner', merge='same',label='batch',keys=Samples,index_unique='_')
+sc.pp.filter_genes(adata,min_cells=5,inplace=True) # SCTransform filters genes that are expressed in less than 5 cells
 
-### SCRAN Normalization
-print('Starting SCRAN Normalization\nlog1p with Scran estimated size factors')
+
+### SCRAN Normalization log1p with Scran estimated size factors
+print('SCRAN Normalization')
 #log1p with Scran estimated size factors
 ### Feature selection and Dimensionality Reduction
 %R library(scran)
@@ -209,7 +221,45 @@ if not os.path.exists('figures'):
 plt.savefig(os.getcwd()+'/figures/'+sample+'_Norm.pdf')
 plt.close()
 
-print('SCRAN Normalization DONE')
+### SCTRANSFORM Normalization
+print('SCTransform Normalization')
+from rpy2.robjects.packages import importr
+from rpy2.robjects import r, pandas2ri
+anndata2ri.activate()
+pandas2ri.activate()
+
+mat = adata.X.copy()
+
+# Set names for the input matrix
+cell_names = adata.obs_names
+gene_names = adata.var_names
+r.assign('mat', mat.T)
+r.assign('cell_names', cell_names)
+r.assign('gene_names', gene_names)
+r('colnames(mat) <- cell_names')
+r('rownames(mat) <- gene_names')
+
+seurat = importr('Seurat')
+r('seurat_obj <- CreateSeuratObject(mat)')
+
+# Run
+r(f'seurat_obj <- SCTransform(seurat_obj,vst.flavor="v2")')
+
+# Extract the SCT data and add it as a new layer in the original anndata object
+sct_data = np.asarray(r['as.matrix'](r('seurat_obj@assays$SCT@data')))
+adata.layers['SCT_data'] = sct_data.T
+sct_data = np.asarray(r['as.matrix'](r('seurat_obj@assays$SCT@counts')))
+adata.layers['SCT_counts'] = sct_data.T
+
+### Shifted logarithm Normalization
+print('Shifted logarithm Normalization')
+scales_counts = sc.pp.normalize_total(adata, target_sum=None, inplace=False)
+adata.layers["log1p_norm"] = sc.pp.log1p(scales_counts["X"], copy=True)
+
+### ORGANIZE layers in the adata
+adata.layers["No_norm"] = adata.X.copy()
+# choose one of the layers
+adata.X = adata.layers[layerToUse]
 
 ### Feature selection and Dimensionality Reduction
 print('Starting Feature selection and Dimensionality Reduction')
@@ -229,17 +279,14 @@ adata.var["highly_deviant"] = mask
 adata.var["binomial_deviance"] = binomial_deviance
 
 #compute the mean and dispersion for each gene accross all cells
-sc.pp.highly_variable_genes(adata, layer="scran_normalization")
+sc.pp.highly_variable_genes(adata, layer=layerToUse)
 
 sns.scatterplot(data=adata.var, x="means", y="dispersions", hue="highly_deviant", s=5)
 plt.title(Experiment)
-plt.savefig(os.getcwd()+'/figures/'+sample+'_Disp.pdf')
+plt.savefig(os.getcwd()+'/figures/'+Experiment+'_Disp.pdf')
 plt.close()
 
 print(f'{Experiment} Feature Selection with Deviance DONE')
-
-adata.layers["No_normalization"] = adata.X.copy()
-adata.X = adata.layers["scran_normalization"]
 
 #PCA
 # setting highly variable as highly deviant to use scanpy 'use_highly_variable' argument in sc.pp.pca

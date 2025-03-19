@@ -872,8 +872,10 @@ import csv
 import os
 
 Path10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
-PathGEX = '/mnt/etemp/ahrmad/wouter/batch_scanpy_FiltTop'
+PathGEX = '/mnt/etemp/ahrmad/wouter/RNA_CB'
 PathATAC = '/mnt/etemp/ahrmad/wouter/snap'
+Dir10x = '/mnt/ndata/daniele/wouter/Processed/CellRangerArc/'
+PathMat = '/outs/filtered_feature_bc_matrix.h5'
 Samples = [d for d in os.listdir(Path10x) if d.startswith('WK') and os.path.isdir(os.path.join(Path10x, d))]
 
 ext_GEX = '_qcFiltTop.h5ad'
@@ -901,8 +903,9 @@ n_cells = [int(el) for el in extract_elements(lis_log,14,5,4)]
 sample_names = [el.rstrip('.') for el in extract_elements(lis_log,14,2,2)]
 
 cell_info = {}
-cell_info['names'] = sample_names
-cell_info['n_cell'] = n_cells
+#cell_info['names'] = sample_names
+cell_info['names'] = Samples
+cell_info['n_cell'] = []
 cell_info['n_cell_RNAQC'] = []
 cell_info['n_cell_ATACQC'] = []
 cell_info['n_cell_BOTHQC'] = []
@@ -910,6 +913,8 @@ cell_info['n_cell_Singlets'] = []
 
 for sample in Samples:
 	print(sample)
+	adata = sc.read_10x_h5(filename=Dir10x + sample + PathMat)
+	cell_info['n_cell'].append(adata.n_obs)
 	# Step 1: Read data from the two CSV files
 	atacfile = f'{refDir}/csv/{sample}{ATACcsv}'
 	gexfile = f'{refDir}/csv/{sample}{GEXcsv}'
@@ -942,7 +947,7 @@ for sample in Samples:
 	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet Both'
 	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'doublet') & (merged_df_all['doublet_class_y'] == 'singlet'), 'doublet_class'] = 'Doublet ATAC Only'
 	merged_df_all.loc[(merged_df_all['doublet_class_x'] == 'singlet') & (merged_df_all['doublet_class_y'] == 'doublet'), 'doublet_class'] = 'Doublet GEX Only'
-	cell_info['n_cell_Singlets'].append(np.sum(merged_df_all['doublet_class'].str.contains('Only')))
+	cell_info['n_cell_Singlets'].append(np.sum(merged_df_all['doublet_class'].str.contains('Singlet Only')))
 
 # Create an array for the x-axis positions
 x = np.arange(len(cell_info['names']))
